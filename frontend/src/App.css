@@ -303,6 +303,13 @@
   color: var(--color-text-secondary);
 }
 
+.slider-lock-note {
+  font-size: 0.8rem;
+  color: var(--color-warning-text);
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+
 /* --- Warning box --- */
 .warning-box {
   display: flex;
@@ -325,6 +332,15 @@
   font-size: 0.85rem;
   color: var(--color-warning-text);
   line-height: 1.5;
+}
+
+.warning-box.warning-orange {
+  background: #fffbeb;
+  border-left-color: #f59e0b;
+}
+
+.warning-box.warning-orange p {
+  color: #92400e;
 }
 
 /* --- Results card --- */

@@ -8,7 +8,7 @@ Protocol and international palliative care guidelines.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -62,6 +62,12 @@ class TargetResult:
     warnings: List[str]
 
 
+@dataclass
+class PatchCombination:
+    patches: List[Tuple[int, int]]  # (mcg_per_hr, count)
+    total_mcg_per_hr: int
+
+
 # ---------------------------------------------------------------------------
 # Conversion table (PRD §4)
 # ---------------------------------------------------------------------------
@@ -76,6 +82,8 @@ CONVERSION_TABLE: list[ConversionEntry] = [
     ConversionEntry("tramadol", "iv", 0.1, 10.0, "100mg tramadol = 10mg morphine"),
     ConversionEntry("dihydrocodeine", "oral", 0.1, 10.0, "100mg DHC = 10mg morphine"),
     ConversionEntry("fentanyl", "sc/iv", 100.0, 0.01, "Use mcg to mg carefully"),
+    ConversionEntry("fentanyl", "oral/mucosal", 50.0, 0.02,
+                     "Buccal/sublingual ~50% bioavailability of IV. Primarily for breakthrough pain."),
     ConversionEntry("fentanyl", "patch", 0.0, 0.0, "Use patch lookup table"),
 ]
 
@@ -86,6 +94,8 @@ FENTANYL_PATCH_TABLE: list[FentanylPatchEntry] = [
     FentanylPatchEntry(75, 180, 225),
     FentanylPatchEntry(100, 240, 300),
 ]
+
+AVAILABLE_PATCH_SIZES = [100, 75, 50, 25, 12]
 
 # Drugs that carry special warnings
 WARNING_DRUGS = {
@@ -138,10 +148,8 @@ def _find_entry(drug: str, route: str) -> ConversionEntry:
 def calculate_tdd(opioid: OpioidInput) -> float:
     """Calculate Total Daily Dose from an OpioidInput."""
     if opioid.asymmetrical:
-        # doses list contains each individual dose for the day
         return sum(opioid.doses)
     else:
-        # single dose × frequency
         if not opioid.doses:
             return 0.0
         return opioid.doses[0] * opioid.frequency
@@ -156,31 +164,22 @@ def drug_dose_to_ome(drug: str, route: str, tdd: float) -> float:
 
 
 def fentanyl_patch_to_ome(mcg_per_hr: float) -> float:
-    """Convert fentanyl patch strength (mcg/hr) to OME/day using the lookup table.
-
-    For exact matches, returns the midpoint of the range.
-    For intermediate values, linearly interpolates between entries.
-    """
+    """Convert fentanyl patch strength (mcg/hr) to OME/day using the lookup table."""
     table = sorted(FENTANYL_PATCH_TABLE, key=lambda e: e.mcg_per_hr)
 
-    # Exact match
     for entry in table:
         if entry.mcg_per_hr == mcg_per_hr:
             return entry.ome_midpoint
 
-    # Interpolation
     if mcg_per_hr < table[0].mcg_per_hr:
-        # Below lowest — linear scale from 0
         ratio = mcg_per_hr / table[0].mcg_per_hr
         return table[0].ome_midpoint * ratio
 
     if mcg_per_hr > table[-1].mcg_per_hr:
-        # Above highest — linear extrapolation from last two
         prev, last = table[-2], table[-1]
         slope = (last.ome_midpoint - prev.ome_midpoint) / (last.mcg_per_hr - prev.mcg_per_hr)
         return last.ome_midpoint + slope * (mcg_per_hr - last.mcg_per_hr)
 
-    # Between two entries
     for i in range(len(table) - 1):
         lo, hi = table[i], table[i + 1]
         if lo.mcg_per_hr < mcg_per_hr < hi.mcg_per_hr:
@@ -202,11 +201,7 @@ def sum_omes(omes: List[float]) -> float:
 
 
 def apply_reduction(ome: float, reduction_pct: float) -> float:
-    """Apply incomplete cross-tolerance dose reduction.
-
-    reduction_pct should be 0-100 (e.g. 25 means 25% reduction).
-    Returns the reduced OME.
-    """
+    """Apply incomplete cross-tolerance dose reduction (0-100%)."""
     if not 0 <= reduction_pct <= 100:
         raise ValueError("Reduction percentage must be between 0 and 100")
     return ome * (1 - reduction_pct / 100)
@@ -220,6 +215,77 @@ def divide_daily_dose(tdd: float, frequency: int) -> list[float]:
     return [single] * frequency
 
 
+# ---------------------------------------------------------------------------
+# GFR-based slider minimum
+# ---------------------------------------------------------------------------
+
+def get_gfr_slider_min(gfr: Optional[float]) -> int:
+    """Return the minimum allowed reduction percentage based on GFR."""
+    if gfr is None:
+        return 0
+    if gfr < 10:
+        return 50
+    if gfr < 30:
+        return 25
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Fentanyl patch combination
+# ---------------------------------------------------------------------------
+
+def ome_to_target_mcg_per_hr(ome: float) -> int:
+    """Convert OME/day to target mcg/hr using reverse interpolation."""
+    table = sorted(FENTANYL_PATCH_TABLE, key=lambda e: e.mcg_per_hr)
+
+    if ome <= 0:
+        return 0
+
+    if ome <= table[0].ome_midpoint:
+        return round(table[0].mcg_per_hr * ome / table[0].ome_midpoint)
+
+    if ome >= table[-1].ome_midpoint:
+        prev, last = table[-2], table[-1]
+        slope = (last.mcg_per_hr - prev.mcg_per_hr) / (last.ome_midpoint - prev.ome_midpoint)
+        return round(last.mcg_per_hr + slope * (ome - last.ome_midpoint))
+
+    for i in range(len(table) - 1):
+        lo, hi = table[i], table[i + 1]
+        if lo.ome_midpoint <= ome <= hi.ome_midpoint:
+            frac = (ome - lo.ome_midpoint) / (hi.ome_midpoint - lo.ome_midpoint)
+            return round(lo.mcg_per_hr + frac * (hi.mcg_per_hr - lo.mcg_per_hr))
+
+    return round(ome / 2.7)
+
+
+def combine_patch_sizes(target_mcg_per_hr: int) -> PatchCombination:
+    """Combine standard patch sizes to reach target mcg/hr (greedy algorithm)."""
+    patches: List[Tuple[int, int]] = []
+    remaining = target_mcg_per_hr
+
+    for size in AVAILABLE_PATCH_SIZES:
+        if remaining >= size:
+            count = remaining // size
+            patches.append((size, count))
+            remaining -= count * size
+
+    if remaining >= 6:
+        patches.append((12, 1))
+
+    total = sum(s * c for s, c in patches)
+    return PatchCombination(patches=patches, total_mcg_per_hr=total)
+
+
+def ome_to_fentanyl_patch(ome: float) -> PatchCombination:
+    """Find the best fentanyl patch combination for a given OME/day."""
+    target_mcg = ome_to_target_mcg_per_hr(ome)
+    return combine_patch_sizes(target_mcg)
+
+
+# ---------------------------------------------------------------------------
+# Full pipeline
+# ---------------------------------------------------------------------------
+
 def compute_target_regimen(
     inputs: List[OpioidInput],
     target_drug: str,
@@ -228,52 +294,31 @@ def compute_target_regimen(
     reduction_pct: float,
     gfr: Optional[float] = None,
 ) -> TargetResult:
-    """Full pipeline: multiple current drugs → target regimen.
-
-    1. Calculate each drug's TDD
-    2. Convert each TDD → OME
-    3. Sum OMEs
-    4. Apply cross-tolerance reduction
-    5. Convert to target drug dose
-    6. Divide into administrations
-    7. Compute breakthrough dose (1/6 of TDD)
-    8. Collect warnings
-    """
+    """Full pipeline: multiple current drugs -> target regimen."""
     warnings: list[str] = []
 
-    # Collect GFR warnings
     if gfr is not None:
         warnings.extend(get_gfr_warnings(gfr))
 
-    # Step 1-2: convert each input to OME
     ome_values: list[float] = []
     for inp in inputs:
-        # Drug-specific warnings
         warnings.extend(get_drug_warnings(inp.drug))
-
         tdd = calculate_tdd(inp)
 
         if inp.drug.lower() == "fentanyl" and inp.route.lower() == "patch":
-            # For patches, doses[0] is mcg/hr
             ome = fentanyl_patch_to_ome(inp.doses[0])
         else:
             ome = drug_dose_to_ome(inp.drug, inp.route, tdd)
 
         ome_values.append(ome)
 
-    # Step 3: sum
     total_ome = sum_omes(ome_values)
-
-    # Step 4: reduction
     reduced_ome = apply_reduction(total_ome, reduction_pct)
 
-    # Step 5: convert to target
-    # Target drug warnings
     warnings.extend(get_drug_warnings(target_drug))
 
     if target_drug.lower() == "fentanyl" and target_route.lower() == "patch":
-        # Reverse lookup: find closest patch strength
-        target_tdd = reduced_ome  # OME value, clinician picks patch size
+        target_tdd = reduced_ome
         divided = [target_tdd]
         frequency = 1
         breakthrough = round(reduced_ome / 6, 2)
@@ -283,8 +328,16 @@ def compute_target_regimen(
         frequency = target_frequency
         breakthrough = round(target_tdd / 6, 2)
 
-    # GFR-specific drug warnings
+    # GFR drug-specific warnings for target drug
     if gfr is not None and gfr < 30:
+        td = target_drug.lower()
+        if td in ("morphine", "codeine", "dihydrocodeine"):
+            warnings.append("gfr.drug.avoid")
+        elif td in ("oxycodone", "hydromorphone"):
+            warnings.append("gfr.drug.caution")
+        elif td == "fentanyl":
+            warnings.append("gfr.drug.preferred")
+
         for inp in inputs:
             risk = GFR_DRUG_RISK.get(inp.drug.lower())
             if risk == "contraindicated":
@@ -302,17 +355,10 @@ def compute_target_regimen(
                     "with GFR < 30 ml/min."
                 )
 
-        target_risk = GFR_DRUG_RISK.get(target_drug.lower())
-        if target_risk == "contraindicated":
-            warnings.append(
-                f"Target drug {target_drug} is contraindicated with GFR < 30 ml/min."
-            )
-        elif target_risk == "avoid":
-            warnings.append(
-                f"Target drug {target_drug} should be avoided with GFR < 30 ml/min."
-            )
+    if gfr is not None and gfr < 10:
+        warnings.append("gfr.below10.warning")
 
-    # De-duplicate warnings
+    # De-duplicate
     seen: set[str] = set()
     unique_warnings: list[str] = []
     for w in warnings:
@@ -341,8 +387,8 @@ def get_gfr_warnings(gfr: float) -> list[str]:
     if gfr < 30:
         warnings.append(
             "GFR < 30 ml/min: High risk of opioid overdose and metabolite "
-            "accumulation. Morphine and pethidine are particularly dangerous. "
-            "Consider fentanyl or sufentanil as safer alternatives."
+            "accumulation. May lead to severe side effects "
+            "(respiratory depression, sedation, neurotoxicity)."
         )
     return warnings
 

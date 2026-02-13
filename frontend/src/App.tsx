@@ -1,24 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLanguage } from "./i18n/LanguageContext";
 import LanguageToggle from "./components/LanguageToggle";
 import PatientParameters from "./components/PatientParameters";
 import CurrentRegimen, { createEmptyInput } from "./components/CurrentRegimen";
 import TargetRegimen from "./components/TargetRegimen";
 import ResultsDisplay from "./components/ResultsDisplay";
-import { computeTargetRegimen } from "./lib/conversions";
+import { computeTargetRegimen, getGfrSliderMin } from "./lib/conversions";
 import type { OpioidInput, TargetResult } from "./lib/types";
 import "./App.css";
 
 function App() {
   const { t } = useLanguage();
 
+  // Patient parameters
+  const [bmi, setBmi] = useState("");
+  const [gender, setGender] = useState("");
   const [gfr, setGfr] = useState("");
+
+  // Current regimen
   const [inputs, setInputs] = useState<OpioidInput[]>([createEmptyInput()]);
+
+  // Target regimen
   const [targetDrug, setTargetDrug] = useState("");
   const [targetRoute, setTargetRoute] = useState("");
   const [targetFrequency, setTargetFrequency] = useState(0);
   const [reductionPct, setReductionPct] = useState(25);
   const [result, setResult] = useState<TargetResult | null>(null);
+
+  // Enforce slider minimum when GFR changes
+  useEffect(() => {
+    const gfrNum = gfr === "" ? null : parseFloat(gfr);
+    if (gfrNum !== null && !isNaN(gfrNum)) {
+      const minReduction = getGfrSliderMin(gfrNum);
+      if (reductionPct < minReduction) {
+        setReductionPct(minReduction);
+      }
+    }
+  }, [gfr, reductionPct]);
 
   const isCurrentValid = inputs.some(
     (inp) =>
@@ -78,20 +96,34 @@ function App() {
       </header>
 
       <main className="app-main">
-        <PatientParameters gfr={gfr} onGfrChange={setGfr} />
+        {/* 1. Patient Parameters: BMI + Gender (top) */}
+        <PatientParameters
+          bmi={bmi}
+          gender={gender}
+          onBmiChange={setBmi}
+          onGenderChange={setGender}
+        />
+
+        {/* 2. Current Opioid Regimen */}
         <CurrentRegimen inputs={inputs} onInputsChange={setInputs} />
+
+        {/* 3. Target Regimen + GFR + Slider + Calculate */}
         <TargetRegimen
           targetDrug={targetDrug}
           targetRoute={targetRoute}
           targetFrequency={targetFrequency}
           reductionPct={reductionPct}
+          gfr={gfr}
           onTargetDrugChange={setTargetDrug}
           onTargetRouteChange={setTargetRoute}
           onTargetFrequencyChange={setTargetFrequency}
           onReductionChange={setReductionPct}
+          onGfrChange={setGfr}
           onCalculate={handleCalculate}
           canCalculate={canCalculate}
         />
+
+        {/* 4. Results */}
         <ResultsDisplay result={result} />
       </main>
 

@@ -1,39 +1,71 @@
 import { useLanguage } from "../i18n/LanguageContext";
 
 interface Props {
-  gfr: string;
-  onGfrChange: (value: string) => void;
+  bmi: string;
+  gender: string;
+  onBmiChange: (value: string) => void;
+  onGenderChange: (value: string) => void;
 }
 
-export default function PatientParameters({ gfr, onGfrChange }: Props) {
+export default function PatientParameters({
+  bmi,
+  gender,
+  onBmiChange,
+  onGenderChange,
+}: Props) {
   const { t } = useLanguage();
-  const gfrNum = gfr === "" ? null : parseFloat(gfr);
-  const showWarning = gfrNum !== null && !isNaN(gfrNum) && gfrNum < 30;
 
   return (
     <div className="card patient-card">
       <h2>{t("patient.title")}</h2>
 
+      {/* BMI selector */}
       <div className="field">
-        <label htmlFor="gfr-input">{t("patient.gfr")}</label>
-        <input
-          id="gfr-input"
-          type="number"
-          inputMode="decimal"
-          min="0"
-          max="200"
-          step="1"
-          value={gfr}
-          onChange={(e) => onGfrChange(e.target.value)}
-          placeholder={t("patient.gfr.placeholder")}
-          className={showWarning ? "input-warning" : ""}
-        />
+        <label htmlFor="bmi-input">{t("patient.bmi")}</label>
+        <select
+          id="bmi-input"
+          value={bmi}
+          onChange={(e) => onBmiChange(e.target.value)}
+        >
+          <option value="">{t("patient.bmi.select")}</option>
+          <option value="low">{t("patient.bmi.low")}</option>
+          <option value="normal">{t("patient.bmi.normal")}</option>
+          <option value="high">{t("patient.bmi.high")}</option>
+        </select>
       </div>
 
-      {showWarning && (
-        <div className="warning-box">
+      {bmi === "low" && (
+        <div className="warning-box warning-orange">
           <span className="warning-icon">&#9888;</span>
-          <p>{t("patient.gfr.warning")}</p>
+          <p>{t("patient.bmi.warning.low")}</p>
+        </div>
+      )}
+
+      {bmi === "high" && (
+        <div className="warning-box warning-orange">
+          <span className="warning-icon">&#9888;</span>
+          <p>{t("patient.bmi.warning.high")}</p>
+        </div>
+      )}
+
+      {/* Gender selector */}
+      <div className="field">
+        <label htmlFor="gender-input">{t("patient.gender")}</label>
+        <select
+          id="gender-input"
+          value={gender}
+          onChange={(e) => onGenderChange(e.target.value)}
+        >
+          <option value="">{t("patient.gender.select")}</option>
+          <option value="male">{t("patient.gender.male")}</option>
+          <option value="female">{t("patient.gender.female")}</option>
+        </select>
+      </div>
+
+      {gender === "female" && (
+        <div className="warning-box warning-orange">
+          <span className="warning-icon">&#9888;</span>
+          <p>{t("patient.gender.warning.female")}</p>
         </div>
       )}
     </div>

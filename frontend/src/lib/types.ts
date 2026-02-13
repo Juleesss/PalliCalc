@@ -35,8 +35,21 @@ export interface TargetResult {
 
 export type DrugRouteKey = string; // "drug|route"
 
+export interface BrandEntry {
+  name: string;
+  form?: string;
+  routeHint?: string;
+  naloxoneCombo?: boolean;
+}
+
 export interface DrugOption {
   drug: string;
   routes: string[];
   unit: string;
+  brands?: BrandEntry[];
+}
+
+export interface PatchCombination {
+  patches: Array<{ mcgPerHr: number; count: number }>;
+  totalMcgPerHr: number;
 }

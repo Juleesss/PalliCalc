@@ -1,32 +1,50 @@
 import { useLanguage } from "../i18n/LanguageContext";
 import { DRUG_OPTIONS } from "../lib/conversions";
 import type { OpioidInput } from "../lib/types";
-import type { TranslationKey } from "../i18n/translations";
 
 interface Props {
   inputs: OpioidInput[];
   onInputsChange: (inputs: OpioidInput[]) => void;
 }
 
-const DOSE_LABELS: TranslationKey[] = [
-  "dose.morning",
-  "dose.noon",
-  "dose.afternoon",
-  "dose.evening",
-  "dose.night",
-  "dose.dose",
-];
+/**
+ * Return the correct dose labels for a given frequency.
+ * For frequency=2 (q12h): Morning + Evening (not Noon).
+ */
+function getDoseLabelsForFrequency(frequency: number): string[] {
+  switch (frequency) {
+    case 1:
+      return ["dose.morning"];
+    case 2:
+      return ["dose.morning", "dose.evening"];
+    case 3:
+      return ["dose.morning", "dose.afternoon", "dose.night"];
+    case 4:
+      return ["dose.morning", "dose.noon", "dose.afternoon", "dose.evening"];
+    case 6:
+      return [
+        "dose.morning",
+        "dose.noon",
+        "dose.afternoon",
+        "dose.evening",
+        "dose.night",
+        "dose.dose",
+      ];
+    default:
+      return Array.from({ length: frequency }, () => `dose.dose`);
+  }
+}
 
 function getFrequencyOptions(drug: string, route: string) {
   if (drug === "fentanyl" && route === "patch") {
-    return [{ value: 1, labelKey: "freq.q72h" as TranslationKey }];
+    return [{ value: 1, labelKey: "freq.q72h" }];
   }
   return [
-    { value: 1, labelKey: "freq.q24h" as TranslationKey },
-    { value: 2, labelKey: "freq.q12h" as TranslationKey },
-    { value: 3, labelKey: "freq.q8h" as TranslationKey },
-    { value: 4, labelKey: "freq.q6h" as TranslationKey },
-    { value: 6, labelKey: "freq.q4h" as TranslationKey },
+    { value: 1, labelKey: "freq.q24h" },
+    { value: 2, labelKey: "freq.q12h" },
+    { value: 3, labelKey: "freq.q8h" },
+    { value: 4, labelKey: "freq.q6h" },
+    { value: 6, labelKey: "freq.q4h" },
   ];
 }
 
@@ -41,6 +59,70 @@ function createEmptyInput(): OpioidInput {
     frequency: 0,
     asymmetrical: false,
   };
+}
+
+/** Render drug options with brand names as optgroups */
+function DrugSelect({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (drug: string, routeHint?: string) => void;
+  placeholder: string;
+}) {
+  const { t } = useLanguage();
+
+  function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const val = e.target.value;
+    if (!val) {
+      onChange("", undefined);
+      return;
+    }
+    // Compound value: "drug|routeHint" or just "drug"
+    const parts = val.split("|");
+    onChange(parts[0], parts[1] || undefined);
+  }
+
+  return (
+    <select value={value} onChange={handleChange}>
+      <option value="">{placeholder}</option>
+      {DRUG_OPTIONS.map((d) => {
+        const drugLabel = t(`drug.${d.drug}`);
+        const hasBrands = d.brands && d.brands.length > 0;
+
+        if (!hasBrands) {
+          return (
+            <option key={d.drug} value={d.drug}>
+              {drugLabel}
+            </option>
+          );
+        }
+
+        return (
+          <optgroup key={d.drug} label={drugLabel}>
+            <option value={d.drug}>{drugLabel}</option>
+            {d.brands!.map((brand, i) => {
+              const routeVal = brand.routeHint
+                ? `${d.drug}|${brand.routeHint}`
+                : d.drug;
+              const suffix = brand.naloxoneCombo
+                ? ` [${t("brand.naloxoneCombo")}]`
+                : "";
+              const formStr = brand.form ? ` (${brand.form})` : "";
+              return (
+                <option key={`${d.drug}-${i}`} value={routeVal}>
+                  {brand.name}
+                  {formStr}
+                  {suffix}
+                </option>
+              );
+            })}
+          </optgroup>
+        );
+      })}
+    </select>
+  );
 }
 
 export default function CurrentRegimen({ inputs, onInputsChange }: Props) {
@@ -107,6 +189,24 @@ export default function CurrentRegimen({ inputs, onInputsChange }: Props) {
     updateInput(inputIndex, { doses: newDoses });
   }
 
+  function handleDrugSelect(index: number, drug: string, routeHint?: string) {
+    if (!drug) {
+      updateInput(index, { drug: "", route: "", frequency: 0, doses: [0], asymmetrical: false });
+      return;
+    }
+    updateInput(index, { drug });
+    // If brand provided a route hint, auto-set route
+    if (routeHint) {
+      const drugOpt = DRUG_OPTIONS.find((d) => d.drug === drug);
+      if (drugOpt && drugOpt.routes.includes(routeHint)) {
+        // Use setTimeout to ensure drug state is set first
+        setTimeout(() => {
+          updateInput(index, { route: routeHint });
+        }, 0);
+      }
+    }
+  }
+
   const isPatch = (inp: OpioidInput) =>
     inp.drug === "fentanyl" && inp.route === "patch";
 
@@ -121,6 +221,7 @@ export default function CurrentRegimen({ inputs, onInputsChange }: Props) {
           ? getFrequencyOptions(inp.drug, inp.route)
           : [];
         const unit = isPatch(inp) ? "mcg/hr" : (drugOpt?.unit ?? "mg");
+        const doseLabels = getDoseLabelsForFrequency(inp.frequency);
 
         return (
           <div key={inp.id} className="drug-entry">
@@ -134,20 +235,14 @@ export default function CurrentRegimen({ inputs, onInputsChange }: Props) {
               </button>
             )}
 
-            {/* Drug selection */}
+            {/* Drug selection with brand names */}
             <div className="field">
               <label>{t("current.drug")}</label>
-              <select
+              <DrugSelect
                 value={inp.drug}
-                onChange={(e) => updateInput(idx, { drug: e.target.value })}
-              >
-                <option value="">{t("current.selectDrug")}</option>
-                {DRUG_OPTIONS.map((d) => (
-                  <option key={d.drug} value={d.drug}>
-                    {t(`drug.${d.drug}` as TranslationKey)}
-                  </option>
-                ))}
-              </select>
+                onChange={(drug, routeHint) => handleDrugSelect(idx, drug, routeHint)}
+                placeholder={t("current.selectDrug")}
+              />
             </div>
 
             {/* Route selection */}
@@ -161,7 +256,7 @@ export default function CurrentRegimen({ inputs, onInputsChange }: Props) {
                   <option value="">{t("current.selectRoute")}</option>
                   {routes.map((r) => (
                     <option key={r} value={r}>
-                      {t(`route.${r}` as TranslationKey)}
+                      {t(`route.${r}`)}
                     </option>
                   ))}
                 </select>
@@ -211,8 +306,8 @@ export default function CurrentRegimen({ inputs, onInputsChange }: Props) {
                   inp.doses.map((dose, di) => (
                     <div key={di} className="field dose-field">
                       <label>
-                        {di < DOSE_LABELS.length
-                          ? t(DOSE_LABELS[di])
+                        {di < doseLabels.length
+                          ? t(doseLabels[di])
                           : `${t("dose.dose")} ${di + 1}`}{" "}
                         ({unit})
                       </label>

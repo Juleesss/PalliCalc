@@ -24,6 +24,54 @@ const translations = {
     hu: "Beteg paraméterek",
     en: "Patient Parameters",
   },
+  "patient.bmi": {
+    hu: "BMI",
+    en: "BMI",
+  },
+  "patient.bmi.low": {
+    hu: "< 19 (sovány)",
+    en: "< 19 (underweight)",
+  },
+  "patient.bmi.normal": {
+    hu: "19–26 (normál)",
+    en: "19–26 (normal)",
+  },
+  "patient.bmi.high": {
+    hu: "> 26 (túlsúlyos)",
+    en: "> 26 (overweight)",
+  },
+  "patient.bmi.select": {
+    hu: "Válasszon BMI tartományt...",
+    en: "Select BMI range...",
+  },
+  "patient.bmi.warning.low": {
+    hu: "Figyelem: Kisebb lehet a tolerancia és magasabb a toxicitási kockázat. Alacsony BMI esetén a lipofil opioidok (fentanil, metadon) nem tudnak nagy mennyiségben felhalmozódni a zsírszövetben, így magasabb plazmakoncentráció alakulhat ki. Fokozott légzésdepresszió kockázata.",
+    en: "Caution: Lower tolerance and higher toxicity risk. In low BMI patients, lipophilic opioids (fentanyl, methadone) cannot accumulate in fat tissue, leading to higher plasma concentrations. Risk of respiratory depression is higher.",
+  },
+  "patient.bmi.warning.high": {
+    hu: "A teljes testsúlyra történő adagolás könnyen túladagoláshoz vezethet! Javasoljuk, hogy az ideális testtömeg (IBW) alapján határozza meg a dóziscsökkentést. A zsírszövetben felhalmozódott szer lassabban szabadul fel (depóhatás), ami késleltetett eliminációt és fokozott légzésdepresszió-kockázatot okoz.",
+    en: "Dosing based on total body weight may lead to overdose. Base reduction on Ideal Body Weight (IBW). Lipophilic opioids accumulate in fat tissue causing delayed elimination (depot effect) and increased risk of respiratory depression.",
+  },
+  "patient.gender": {
+    hu: "Nem",
+    en: "Gender",
+  },
+  "patient.gender.select": {
+    hu: "Válasszon...",
+    en: "Select...",
+  },
+  "patient.gender.male": {
+    hu: "Férfi",
+    en: "Male",
+  },
+  "patient.gender.female": {
+    hu: "Nő",
+    en: "Female",
+  },
+  "patient.gender.warning.female": {
+    hu: "A kiszámolt dózis változtatandó lehet akár naponta is, ha premenopausában van a beteg! Az ösztrogén/progeszteron ingadozások befolyásolják az endogén opioid rendszert és a mu-receptor elérhetőségét. Orális gyógyszer adagolás ajánlott a rugalmasság érdekében.",
+    en: "Dose requirements may fluctuate daily due to hormonal cycle (premenopause). Estrogen/progesterone fluctuations affect the endogenous opioid system and mu-receptor availability. Oral administration is recommended for flexibility.",
+  },
   "patient.gfr": {
     hu: "GFR (ml/perc)",
     en: "GFR (ml/min)",
@@ -33,8 +81,30 @@ const translations = {
     en: "e.g. 60",
   },
   "patient.gfr.warning": {
-    hu: "GFR < 30 ml/perc: Magas opioid túladagolás és metabolit-felhalmozódás kockázata. A morfin és a petidin különösen veszélyes. Fontolja meg a fentanil vagy szufentanil alkalmazását biztonságosabb alternatívaként.",
-    en: "GFR < 30 ml/min: High risk of opioid overdose and metabolite accumulation. Morphine and pethidine are particularly dangerous. Consider fentanyl or sufentanil as safer alternatives.",
+    hu: "GFR < 30 ml/perc: Magas opioid túladagolás és metabolit-felhalmozódás kockázata. Súlyos mellékhatásokhoz (légzésdepresszió, szedáció, neurotoxicitás) vezethet.",
+    en: "GFR < 30 ml/min: High risk of opioid overdose and metabolite accumulation. May lead to severe side effects (respiratory depression, sedation, neurotoxicity).",
+  },
+
+  // GFR drug-specific warnings
+  "gfr.drug.avoid": {
+    hu: "KERÜLENDŐ! A morfin/kodein aktív metabolitjai felhalmozódnak (neurotoxicitás/szedáció). Fontolja meg a fentanil alkalmazását — nincs aktív metabolitja, biztonságosabb veseelégtelenségben.",
+    en: "AVOID. Active metabolites of morphine/codeine accumulate (neurotoxicity/sedation). Consider fentanyl — no active metabolites, safest choice in renal failure.",
+  },
+  "gfr.drug.caution": {
+    hu: "ÓVATOSAN! Csökkentett dózisban és ritkított gyakorisággal alkalmazandó. Szoros monitorozás szükséges.",
+    en: "USE CAUTION. Reduce dose and frequency. Monitor closely.",
+  },
+  "gfr.drug.preferred": {
+    hu: "ELŐNYÖS VÁLASZTÁS. A fentanil a legbiztonságosabb szer veseelégtelenségben (nincs aktív metabolitja).",
+    en: "PREFERRED. Fentanyl is the safest choice in renal failure (no active metabolites).",
+  },
+  "gfr.below10.warning": {
+    hu: "GFR < 10: Legalább 50%-os dóziscsökkentés javasolt és lassú dózisemelés (titrálás)!",
+    en: "GFR < 10: Suggest 50% dose reduction and slow titration.",
+  },
+  "gfr.slider.locked": {
+    hu: "A GFR érték alapján a minimális csökkentés",
+    en: "Based on GFR value, minimum reduction is",
   },
 
   // Current regimen
@@ -155,8 +225,8 @@ const translations = {
     en: "Breakthrough dose (1/6 of TDD)",
   },
   "result.patchSuggestion": {
-    hu: "Javasolt tapasz erősség",
-    en: "Suggested patch strength",
+    hu: "Javasolt tapasz kombináció",
+    en: "Suggested patch combination",
   },
   "result.warnings": {
     hu: "Figyelmeztetések",
@@ -172,6 +242,7 @@ const translations = {
   "route.sc/iv": { hu: "SC / IV (parenterális)", en: "SC / IV (parenteral)" },
   "route.iv": { hu: "IV (intravénás)", en: "IV (intravenous)" },
   "route.patch": { hu: "Transzdermális tapasz", en: "Transdermal patch" },
+  "route.oral/mucosal": { hu: "Orális / mukozális (buccalis/szublinguális)", en: "Oral / Mucosal (buccal/sublingual)" },
 
   // Frequencies
   "freq.q24h": { hu: "24 óránként (1×/nap)", en: "Every 24h (1×/day)" },
@@ -192,6 +263,9 @@ const translations = {
   "drug.nalbuphine": { hu: "Nalbufin", en: "Nalbuphine" },
   "drug.pethidine": { hu: "Petidin", en: "Pethidine" },
 
+  // Brand name labels
+  "brand.naloxoneCombo": { hu: "+ Naloxon", en: "+ Naloxone" },
+
   // Units
   "unit.mg": { hu: "mg", en: "mg" },
   "unit.mcg": { hu: "mcg", en: "mcg" },
@@ -211,8 +285,8 @@ const translations = {
 
 export type TranslationKey = keyof typeof translations;
 
-export function t(key: TranslationKey, lang: Lang): string {
-  const entry = translations[key];
+export function t(key: string, lang: Lang): string {
+  const entry = (translations as Record<string, Record<string, string>>)[key];
   if (!entry) return key;
   return entry[lang] || key;
 }

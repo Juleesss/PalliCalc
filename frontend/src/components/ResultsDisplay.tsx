@@ -1,7 +1,6 @@
 import { useLanguage } from "../i18n/LanguageContext";
 import { omeToFentanylPatch } from "../lib/conversions";
 import type { TargetResult } from "../lib/types";
-import type { TranslationKey } from "../i18n/translations";
 
 interface Props {
   result: TargetResult | null;
@@ -13,10 +12,28 @@ export default function ResultsDisplay({ result }: Props) {
   if (!result) return null;
 
   const isPatch = result.drug === "fentanyl" && result.route === "patch";
-  const drugLabel = t(`drug.${result.drug}` as TranslationKey);
-  const routeLabel = t(`route.${result.route}` as TranslationKey);
+  const drugLabel = t(`drug.${result.drug}`);
+  const routeLabel = t(`route.${result.route}`);
 
-  const patchInfo = isPatch ? omeToFentanylPatch(result.reducedOme) : null;
+  const patchCombo = isPatch ? omeToFentanylPatch(result.reducedOme) : null;
+
+  // Format patch combination as readable string
+  function formatPatchCombo() {
+    if (!patchCombo || patchCombo.patches.length === 0) return null;
+    const parts = patchCombo.patches.map(
+      (p) => `${p.count}× ${p.mcgPerHr} mcg/${lang === "hu" ? "óra" : "hr"}`,
+    );
+    return parts.join(" + ");
+  }
+
+  // Translate warning keys that come from computeTargetRegimen
+  function translateWarning(w: string): string {
+    // Check if it's a translation key (contains dots and matches known patterns)
+    if (w.startsWith("gfr.")) {
+      return t(w);
+    }
+    return w;
+  }
 
   return (
     <div className="card results-card">
@@ -48,13 +65,15 @@ export default function ResultsDisplay({ result }: Props) {
           </span>
         </div>
 
-        {isPatch && patchInfo && (
+        {isPatch && patchCombo && patchCombo.patches.length > 0 && (
           <div className="result-item highlight">
             <span className="result-label">{t("result.patchSuggestion")}</span>
             <span className="result-value large">
-              {patchInfo.mcgPerHr} mcg/hr
+              {formatPatchCombo()}
             </span>
-            <span className="result-note">({patchInfo.range})</span>
+            <span className="result-note">
+              ({lang === "hu" ? "Összesen" : "Total"}: {patchCombo.totalMcgPerHr} mcg/{lang === "hu" ? "óra" : "hr"})
+            </span>
           </div>
         )}
 
@@ -85,7 +104,7 @@ export default function ResultsDisplay({ result }: Props) {
           {result.warnings.map((w, i) => (
             <div key={i} className="warning-box">
               <span className="warning-icon">&#9888;</span>
-              <p>{w}</p>
+              <p>{translateWarning(w)}</p>
             </div>
           ))}
         </div>

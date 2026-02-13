@@ -1,16 +1,17 @@
 import { useLanguage } from "../i18n/LanguageContext";
-import { DRUG_OPTIONS } from "../lib/conversions";
-import type { TranslationKey } from "../i18n/translations";
+import { DRUG_OPTIONS, getGfrSliderMin } from "../lib/conversions";
 
 interface Props {
   targetDrug: string;
   targetRoute: string;
   targetFrequency: number;
   reductionPct: number;
+  gfr: string;
   onTargetDrugChange: (drug: string) => void;
   onTargetRouteChange: (route: string) => void;
   onTargetFrequencyChange: (freq: number) => void;
   onReductionChange: (pct: number) => void;
+  onGfrChange: (value: string) => void;
   onCalculate: () => void;
   canCalculate: boolean;
 }
@@ -20,10 +21,12 @@ export default function TargetRegimen({
   targetRoute,
   targetFrequency,
   reductionPct,
+  gfr,
   onTargetDrugChange,
   onTargetRouteChange,
   onTargetFrequencyChange,
   onReductionChange,
+  onGfrChange,
   onCalculate,
   canCalculate,
 }: Props) {
@@ -34,17 +37,44 @@ export default function TargetRegimen({
   const isPatch = targetDrug === "fentanyl" && targetRoute === "patch";
 
   const freqOptions = [
-    { value: 1, labelKey: "freq.q24h" as TranslationKey },
-    { value: 2, labelKey: "freq.q12h" as TranslationKey },
-    { value: 3, labelKey: "freq.q8h" as TranslationKey },
-    { value: 4, labelKey: "freq.q6h" as TranslationKey },
-    { value: 6, labelKey: "freq.q4h" as TranslationKey },
+    { value: 1, labelKey: "freq.q24h" },
+    { value: 2, labelKey: "freq.q12h" },
+    { value: 3, labelKey: "freq.q8h" },
+    { value: 4, labelKey: "freq.q6h" },
+    { value: 6, labelKey: "freq.q4h" },
   ];
+
+  // GFR parsing and slider locking
+  const gfrNum = gfr === "" ? null : parseFloat(gfr);
+  const gfrValid = gfrNum !== null && !isNaN(gfrNum);
+  const showGfrWarning = gfrValid && gfrNum! < 30;
+  const sliderMin = getGfrSliderMin(gfrValid ? gfrNum : null);
 
   function handleDrugChange(drug: string) {
     onTargetDrugChange(drug);
     onTargetRouteChange("");
     onTargetFrequencyChange(0);
+  }
+
+  function handleDrugSelect(e: React.ChangeEvent<HTMLSelectElement>) {
+    const val = e.target.value;
+    if (!val) {
+      handleDrugChange("");
+      return;
+    }
+    const parts = val.split("|");
+    const drug = parts[0];
+    const routeHint = parts[1] || undefined;
+
+    handleDrugChange(drug);
+    if (routeHint) {
+      const opt = DRUG_OPTIONS.find((d) => d.drug === drug);
+      if (opt && opt.routes.includes(routeHint)) {
+        setTimeout(() => {
+          handleRouteChange(routeHint);
+        }, 0);
+      }
+    }
   }
 
   function handleRouteChange(route: string) {
@@ -56,23 +86,53 @@ export default function TargetRegimen({
     }
   }
 
+  function handleSliderChange(value: number) {
+    onReductionChange(Math.max(value, sliderMin));
+  }
+
   return (
     <div className="card target-card">
       <h2>{t("target.title")}</h2>
 
-      {/* Target drug */}
+      {/* Target drug with brand names */}
       <div className="field">
         <label>{t("target.drug")}</label>
-        <select
-          value={targetDrug}
-          onChange={(e) => handleDrugChange(e.target.value)}
-        >
+        <select value={targetDrug} onChange={handleDrugSelect}>
           <option value="">{t("current.selectDrug")}</option>
-          {DRUG_OPTIONS.map((d) => (
-            <option key={d.drug} value={d.drug}>
-              {t(`drug.${d.drug}` as TranslationKey)}
-            </option>
-          ))}
+          {DRUG_OPTIONS.map((d) => {
+            const drugLabel = t(`drug.${d.drug}`);
+            const hasBrands = d.brands && d.brands.length > 0;
+
+            if (!hasBrands) {
+              return (
+                <option key={d.drug} value={d.drug}>
+                  {drugLabel}
+                </option>
+              );
+            }
+
+            return (
+              <optgroup key={d.drug} label={drugLabel}>
+                <option value={d.drug}>{drugLabel}</option>
+                {d.brands!.map((brand, i) => {
+                  const routeVal = brand.routeHint
+                    ? `${d.drug}|${brand.routeHint}`
+                    : d.drug;
+                  const suffix = brand.naloxoneCombo
+                    ? ` [${t("brand.naloxoneCombo")}]`
+                    : "";
+                  const formStr = brand.form ? ` (${brand.form})` : "";
+                  return (
+                    <option key={`${d.drug}-${i}`} value={routeVal}>
+                      {brand.name}
+                      {formStr}
+                      {suffix}
+                    </option>
+                  );
+                })}
+              </optgroup>
+            );
+          })}
         </select>
       </div>
 
@@ -87,7 +147,7 @@ export default function TargetRegimen({
             <option value="">{t("current.selectRoute")}</option>
             {routes.map((r) => (
               <option key={r} value={r}>
-                {t(`route.${r}` as TranslationKey)}
+                {t(`route.${r}`)}
               </option>
             ))}
           </select>
@@ -112,6 +172,30 @@ export default function TargetRegimen({
         </div>
       )}
 
+      {/* GFR input (moved here — after opioid selection) */}
+      <div className="field">
+        <label htmlFor="gfr-input">{t("patient.gfr")}</label>
+        <input
+          id="gfr-input"
+          type="number"
+          inputMode="decimal"
+          min="0"
+          max="200"
+          step="1"
+          value={gfr}
+          onChange={(e) => onGfrChange(e.target.value)}
+          placeholder={t("patient.gfr.placeholder")}
+          className={showGfrWarning ? "input-warning" : ""}
+        />
+      </div>
+
+      {showGfrWarning && (
+        <div className="warning-box">
+          <span className="warning-icon">&#9888;</span>
+          <p>{t("patient.gfr.warning")}</p>
+        </div>
+      )}
+
       {/* Reduction slider */}
       <div className="field reduction-field">
         <label>
@@ -119,18 +203,23 @@ export default function TargetRegimen({
         </label>
         <input
           type="range"
-          min="0"
-          max="50"
+          min={sliderMin}
+          max="70"
           step="5"
-          value={reductionPct}
-          onChange={(e) => onReductionChange(parseInt(e.target.value))}
+          value={Math.max(reductionPct, sliderMin)}
+          onChange={(e) => handleSliderChange(parseInt(e.target.value))}
           className="slider"
         />
         <div className="slider-labels">
-          <span>0%</span>
-          <span>25%</span>
-          <span>50%</span>
+          <span>{sliderMin > 0 ? `${sliderMin}%` : "0%"}</span>
+          <span>35%</span>
+          <span>70%</span>
         </div>
+        {sliderMin > 0 && (
+          <p className="slider-lock-note">
+            {t("gfr.slider.locked")} {sliderMin}%
+          </p>
+        )}
       </div>
 
       {/* Calculate button */}

@@ -11,6 +11,7 @@ import type {
   OpioidInput,
   TargetResult,
   DrugOption,
+  PatchCombination,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -27,6 +28,7 @@ export const CONVERSION_TABLE: ConversionEntry[] = [
   { drug: "tramadol", route: "iv", factorToOme: 0.1, factorFromOme: 10.0, notes: "100mg = 10mg morphine" },
   { drug: "dihydrocodeine", route: "oral", factorToOme: 0.1, factorFromOme: 10.0, notes: "100mg DHC = 10mg morphine" },
   { drug: "fentanyl", route: "sc/iv", factorToOme: 100.0, factorFromOme: 0.01, notes: "Use mcg↔mg carefully" },
+  { drug: "fentanyl", route: "oral/mucosal", factorToOme: 50.0, factorFromOme: 0.02, notes: "Buccal/sublingual ~50% bioavailability of IV. Primarily for breakthrough pain." },
   { drug: "fentanyl", route: "patch", factorToOme: 0, factorFromOme: 0, notes: "Use patch lookup table" },
 ];
 
@@ -40,11 +42,44 @@ export const FENTANYL_PATCH_TABLE: FentanylPatchEntry[] = [
 
 export const DRUG_OPTIONS: DrugOption[] = [
   { drug: "morphine", routes: ["oral", "sc/iv"], unit: "mg" },
-  { drug: "oxycodone", routes: ["oral", "sc/iv"], unit: "mg" },
+  {
+    drug: "oxycodone",
+    routes: ["oral", "sc/iv"],
+    unit: "mg",
+    brands: [
+      { name: "OxyContin", form: "retard filmtabletta", routeHint: "oral" },
+      { name: "Codoxy", form: "retard tabletta", routeHint: "oral" },
+      { name: "Codoxy Rapid", routeHint: "oral" },
+      { name: "Reltebon", form: "retard tabletta", routeHint: "oral" },
+      { name: "Oxycodone Sandoz", form: "kemény kapszula & tabletta", routeHint: "oral" },
+      { name: "Oxycodone Vitabalans", routeHint: "oral" },
+      { name: "Targin", form: "retard tabletta", routeHint: "oral", naloxoneCombo: true },
+      { name: "Oxynal", form: "retard tabletta", routeHint: "oral", naloxoneCombo: true },
+      { name: "Oxynador", routeHint: "oral", naloxoneCombo: true },
+      { name: "Oxikodon-HCL/Naloxon-HCL Neuraxpharm", routeHint: "oral", naloxoneCombo: true },
+    ],
+  },
   { drug: "hydromorphone", routes: ["oral"], unit: "mg" },
   { drug: "tramadol", routes: ["oral", "iv"], unit: "mg" },
   { drug: "dihydrocodeine", routes: ["oral"], unit: "mg" },
-  { drug: "fentanyl", routes: ["sc/iv", "patch"], unit: "mg" },
+  {
+    drug: "fentanyl",
+    routes: ["sc/iv", "patch", "oral/mucosal"],
+    unit: "mg",
+    brands: [
+      { name: "Durogesic", routeHint: "patch" },
+      { name: "Dolforin", routeHint: "patch" },
+      { name: "Matrifen", routeHint: "patch" },
+      { name: "Fentanyl Sandoz", form: "tapasz", routeHint: "patch" },
+      { name: "Fentanyl-ratiopharm", routeHint: "patch" },
+      { name: "Effentora", form: "buccalis", routeHint: "oral/mucosal" },
+      { name: "Abstral", form: "sublinguális", routeHint: "oral/mucosal" },
+      { name: "Actiq", form: "szopogató", routeHint: "oral/mucosal" },
+      { name: "Fentanyl-Richter", routeHint: "sc/iv" },
+      { name: "Fentanyl Kalceks", routeHint: "sc/iv" },
+      { name: "Fentanyl Sandoz", form: "injectio", routeHint: "sc/iv" },
+    ],
+  },
 ];
 
 export const FREQUENCY_OPTIONS = [
@@ -190,6 +225,17 @@ export function getDrugWarnings(drug: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// GFR-based slider minimum
+// ---------------------------------------------------------------------------
+
+export function getGfrSliderMin(gfr: number | null): number {
+  if (gfr === null || isNaN(gfr)) return 0;
+  if (gfr < 10) return 50;
+  if (gfr < 30) return 25;
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
 // Full pipeline
 // ---------------------------------------------------------------------------
 
@@ -249,8 +295,24 @@ export function computeTargetRegimen(
 
   targetTdd = Math.round(targetTdd * 100) / 100;
 
-  // GFR-specific drug risk warnings
+  // GFR-specific drug risk warnings for target drug
   if (gfr !== null && gfr < 30) {
+    const td = targetDrug.toLowerCase();
+    if (td === "morphine" || td === "codeine" || td === "dihydrocodeine") {
+      warnings.push(
+        `gfr.drug.avoid`,
+      );
+    } else if (td === "oxycodone" || td === "hydromorphone") {
+      warnings.push(
+        `gfr.drug.caution`,
+      );
+    } else if (td === "fentanyl") {
+      warnings.push(
+        `gfr.drug.preferred`,
+      );
+    }
+
+    // Source drug warnings
     for (const inp of inputs) {
       const risk = GFR_DRUG_RISK[inp.drug.toLowerCase()];
       if (risk === "contraindicated") {
@@ -265,12 +327,11 @@ export function computeTargetRegimen(
         );
       }
     }
-    const targetRisk = GFR_DRUG_RISK[targetDrug.toLowerCase()];
-    if (targetRisk === "contraindicated") {
-      warnings.push(`Target drug ${targetDrug} is contraindicated with GFR < 30 ml/min.`);
-    } else if (targetRisk === "avoid") {
-      warnings.push(`Target drug ${targetDrug} should be avoided with GFR < 30 ml/min.`);
-    }
+  }
+
+  // GFR < 10 general warning
+  if (gfr !== null && gfr < 10) {
+    warnings.push(`gfr.below10.warning`);
   }
 
   // De-duplicate
@@ -290,25 +351,77 @@ export function computeTargetRegimen(
 }
 
 /**
- * Find the closest fentanyl patch strength for a given OME/day.
+ * Convert OME/day to target mcg/hr using reverse interpolation of patch table.
  */
-export function omeToFentanylPatch(ome: number): { mcgPerHr: number; range: string } | null {
+export function omeToTargetMcgPerHr(ome: number): number {
   const table = [...FENTANYL_PATCH_TABLE].sort((a, b) => a.mcgPerHr - b.mcgPerHr);
 
-  // Find the closest matching entry
-  let best = table[0];
-  let bestDiff = Math.abs(patchMidpoint(best) - ome);
+  if (ome <= 0) return 0;
 
-  for (const entry of table) {
-    const diff = Math.abs(patchMidpoint(entry) - ome);
-    if (diff < bestDiff) {
-      best = entry;
-      bestDiff = diff;
+  // Below lowest
+  if (ome <= patchMidpoint(table[0])) {
+    return Math.round(table[0].mcgPerHr * ome / patchMidpoint(table[0]));
+  }
+
+  // Above highest — extrapolate
+  const last = table[table.length - 1];
+  if (ome >= patchMidpoint(last)) {
+    const prev = table[table.length - 2];
+    const slope =
+      (last.mcgPerHr - prev.mcgPerHr) /
+      (patchMidpoint(last) - patchMidpoint(prev));
+    return Math.round(last.mcgPerHr + slope * (ome - patchMidpoint(last)));
+  }
+
+  // Interpolate between entries
+  for (let i = 0; i < table.length - 1; i++) {
+    const lo = table[i];
+    const hi = table[i + 1];
+    if (ome >= patchMidpoint(lo) && ome <= patchMidpoint(hi)) {
+      const frac =
+        (ome - patchMidpoint(lo)) / (patchMidpoint(hi) - patchMidpoint(lo));
+      return Math.round(lo.mcgPerHr + frac * (hi.mcgPerHr - lo.mcgPerHr));
     }
   }
 
-  return {
-    mcgPerHr: best.mcgPerHr,
-    range: `${best.omeLow}-${best.omeHigh} mg OME/day`,
-  };
+  return Math.round(ome / 2.7); // fallback average ratio
+}
+
+const AVAILABLE_PATCH_SIZES = [100, 75, 50, 25, 12];
+
+/**
+ * Combine standard patch sizes (100, 75, 50, 25, 12 mcg/hr) to reach target.
+ * Uses greedy algorithm from largest to smallest.
+ */
+export function combinePatchSizes(targetMcgPerHr: number): PatchCombination {
+  const patches: Array<{ mcgPerHr: number; count: number }> = [];
+  let remaining = targetMcgPerHr;
+
+  for (const size of AVAILABLE_PATCH_SIZES) {
+    if (remaining >= size) {
+      const count = Math.floor(remaining / size);
+      patches.push({ mcgPerHr: size, count });
+      remaining -= count * size;
+    }
+  }
+
+  // If remainder >= half of smallest patch, round up
+  if (remaining >= 6) {
+    patches.push({ mcgPerHr: 12, count: 1 });
+  }
+
+  const totalMcgPerHr = patches.reduce(
+    (sum, p) => sum + p.mcgPerHr * p.count,
+    0,
+  );
+
+  return { patches, totalMcgPerHr };
+}
+
+/**
+ * Find the best fentanyl patch combination for a given OME/day.
+ */
+export function omeToFentanylPatch(ome: number): PatchCombination {
+  const targetMcg = omeToTargetMcgPerHr(ome);
+  return combinePatchSizes(targetMcg);
 }
