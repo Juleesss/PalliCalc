@@ -5,6 +5,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/PalliCalc/',
+  build: {
+    outDir: '../docs',
+    emptyOutDir: true,
+  },
   plugins: [
     react(),
     tailwindcss(),
