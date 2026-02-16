@@ -263,6 +263,13 @@ const hu: Record<string, string> = {
   'a11y.languageToggle': 'Nyelv váltás',
   'a11y.removeDrug': 'Gyógyszer eltávolítása',
   'a11y.addDrug': 'Gyógyszer hozzáadása',
+
+  // ---------------------------------------------------------------------------
+  // Drug Combobox Fallbacks
+  // ---------------------------------------------------------------------------
+  'drug.select': 'Gyógyszer kiválasztása',
+  'drug.searchPlaceholder': 'Keresés...',
+  'drug.noResults': 'Nincs találat',
 };
 
 export default hu;

@@ -382,11 +382,15 @@ export default function ResultsCard() {
   const isInjectable =
     result?.targetRoute === 'sc/iv' || result?.targetRoute === 'iv';
 
-  if (!result) return null;
+  if (!result) {
+    return (
+      <div id="results-card" aria-live="polite" aria-atomic="true" />
+    );
+  }
 
   return (
     <Card title={t('results.title')} id="results-card">
-      <div className="space-y-4" aria-live="polite">
+      <div className="space-y-4" aria-live="polite" aria-atomic="true">
         {/* A. OME Summary */}
         <OmeSummary
           totalOme={result.totalOme}

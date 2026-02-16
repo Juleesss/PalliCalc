@@ -20,11 +20,15 @@ import { distributeToTablets, roundToTablets, tabletTotal } from './tablet-round
 import { combinePatchSizes, omeToFentanylMcgHr } from './patch-calculator';
 import {
   getDrugWarnings,
+  getDrugRouteWarnings,
   getGfrWarnings,
   getGfrDrugAdvice,
   getMinDoseWarning,
   getGfrSliderMin,
+  getBmiWarnings,
+  getGenderWarnings,
 } from './warnings';
+import { getDoseLabels } from './formatting';
 
 // ---------------------------------------------------------------------------
 // Conversion Table (PRD section 4.2 / clinical_data_reference section 1.2)
@@ -46,6 +50,9 @@ export const CONVERSION_TABLE: readonly ConversionEntry[] = [
   // Fentanyl patch uses lookup table, not a linear factor.
   // Oxycodone+naloxone uses the same factor as oxycodone (naloxone is local gut action).
   { drug: 'oxycodone-naloxone', route: 'oral',      factorToOme: 1.5,   factorFromOme: 0.667,   unit: 'mg' },
+  // Pethidine: approximate conversion, flagged as unreliable (clinical_data_reference §11.2)
+  { drug: 'pethidine',    route: 'oral',    factorToOme: 0.1,   factorFromOme: 10.0,    unit: 'mg' },
+  { drug: 'pethidine',    route: 'sc/iv',   factorToOme: 0.3,   factorFromOme: 3.333,   unit: 'mg' },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -216,8 +223,9 @@ export function computeTargetRegimen(
   targetFrequency: number,
   reductionPct: number,
   gfr: number | null = null,
-  _bmi: string | null = null,
-  _gender: string | null = null,
+  bmi: string | null = null,
+  gender: string | null = null,
+  lang: 'hu' | 'en' = 'hu',
 ): TargetResult {
   const warnings: WarningItem[] = [];
   const perDrugOme: { drug: string; route: string; ome: number }[] = [];
@@ -258,9 +266,12 @@ export function computeTargetRegimen(
   }
 
   // -----------------------------------------------------------------------
-  // Step 4: Target drug warnings
+  // Step 4: Target drug warnings + route + BMI + gender
   // -----------------------------------------------------------------------
   warnings.push(...getDrugWarnings(targetDrug, true));
+  warnings.push(...getDrugRouteWarnings(targetDrug, targetRoute, true));
+  warnings.push(...getBmiWarnings(bmi));
+  warnings.push(...getGenderWarnings(gender));
 
   // -----------------------------------------------------------------------
   // Step 5: Convert reduced OME to target drug
@@ -283,7 +294,8 @@ export function computeTargetRegimen(
     // Try to round to methadone tablet sizes
     const sizes = getTabletSizes('methadone', 'oral');
     if (sizes.length > 0 && targetFrequency > 0) {
-      dividedDoses = distributeToTablets(targetTdd, targetFrequency, sizes, []);
+      const labels = getDoseLabels(targetFrequency, lang);
+      dividedDoses = distributeToTablets(targetTdd, targetFrequency, sizes, labels);
       actualTdd = dividedDoses.reduce((sum, d) => sum + d.totalMg, 0);
       roundingDeltaPct = targetTdd > 0 ? ((actualTdd - targetTdd) / targetTdd) * 100 : 0;
     }
@@ -312,7 +324,8 @@ export function computeTargetRegimen(
       // Oral: round to available tablet sizes
       const sizes = getTabletSizes(targetDrug, targetRoute);
       if (sizes.length > 0 && targetFrequency > 0) {
-        dividedDoses = distributeToTablets(targetTdd, targetFrequency, sizes, []);
+        const labels = getDoseLabels(targetFrequency, lang);
+        dividedDoses = distributeToTablets(targetTdd, targetFrequency, sizes, labels);
         actualTdd = dividedDoses.reduce((sum, d) => sum + d.totalMg, 0);
         roundingDeltaPct = targetTdd > 0 ? ((actualTdd - targetTdd) / targetTdd) * 100 : 0;
       } else {
@@ -324,7 +337,7 @@ export function computeTargetRegimen(
     if (targetDrug === 'tramadol' && actualTdd > 400) {
       warnings.push({
         type: 'danger',
-        messageKey: 'warning.tramadol.maxDose',
+        messageKey: 'warning.drug.tramadol.max',
         params: { dose: Math.round(actualTdd) },
       });
     }

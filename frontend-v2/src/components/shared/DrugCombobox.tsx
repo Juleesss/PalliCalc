@@ -201,7 +201,7 @@ export default function DrugCombobox({
 
         <ComboboxOptions
           anchor="bottom"
-          className="z-50 w-[var(--input-width)] max-h-60 overflow-auto rounded-lg bg-white py-1 shadow-lg ring-1 ring-black/5 empty:hidden mt-1"
+          className="z-50 w-[var(--input-width)] max-h-60 sm:max-h-60 max-sm:max-h-[60vh] max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:w-full max-sm:rounded-t-2xl max-sm:rounded-b-none max-sm:shadow-2xl overflow-auto rounded-lg bg-white py-1 shadow-lg ring-1 ring-black/5 empty:hidden mt-1 max-sm:mt-0"
         >
           {groupedItems.map((group) => (
             <Fragment key={group.drug.id}>

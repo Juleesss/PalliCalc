@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Card from '../shared/Card.tsx';
 import DrugEntry from './DrugEntry.tsx';
 import { useCalculator } from './CalculatorProvider.tsx';
@@ -10,8 +10,8 @@ export default function CurrentRegimenCard() {
   const { state, dispatch } = useCalculator();
   const { lang, t } = useLanguage();
 
-  // Calculate running OME total and per-drug breakdown
-  const omeBreakdown = useMemo(() => {
+  // Calculate OME (instant, for debounce input)
+  const omeBreakdownRaw = useMemo(() => {
     const entries: { label: string; ome: number }[] = [];
     let total = 0;
 
@@ -41,6 +41,13 @@ export default function CurrentRegimenCard() {
 
     return { entries, total: Math.round(total * 10) / 10 };
   }, [state.currentDrugs, lang]);
+
+  // Debounce the OME display by 300ms
+  const [omeBreakdown, setOmeBreakdown] = useState(omeBreakdownRaw);
+  useEffect(() => {
+    const timer = setTimeout(() => setOmeBreakdown(omeBreakdownRaw), 300);
+    return () => clearTimeout(timer);
+  }, [omeBreakdownRaw]);
 
   const handleAddDrug = () => {
     dispatch({ type: 'ADD_DRUG' });

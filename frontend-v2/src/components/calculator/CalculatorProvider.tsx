@@ -312,6 +312,22 @@ function calculatorReducer(
     }
 
     // -----------------------------------------------------------------------
+    // Target Regimen: SET_TARGET_DRUG_WITH_ROUTE (atomic brand selection)
+    // -----------------------------------------------------------------------
+    case 'SET_TARGET_DRUG_WITH_ROUTE': {
+      const { drug, route } = action.payload;
+      const defaultFrequency = getDefaultFrequency(drug, route);
+
+      return {
+        ...state,
+        targetDrug: drug,
+        targetRoute: route,
+        targetFrequency: defaultFrequency,
+        result: null,
+      };
+    }
+
+    // -----------------------------------------------------------------------
     // Target Regimen: SET_TARGET_ROUTE
     // -----------------------------------------------------------------------
     case 'SET_TARGET_ROUTE': {

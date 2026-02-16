@@ -200,6 +200,7 @@ export type CalculatorAction =
       readonly payload: { id: string; changes: Partial<{ drug: string; route: string; frequency: number; doses: number[]; isAsymmetric: boolean }> };
     }
   | { readonly type: 'SET_TARGET_DRUG'; readonly payload: string }
+  | { readonly type: 'SET_TARGET_DRUG_WITH_ROUTE'; readonly payload: { drug: string; route: string } }
   | { readonly type: 'SET_TARGET_ROUTE'; readonly payload: string }
   | { readonly type: 'SET_TARGET_FREQUENCY'; readonly payload: number }
   | { readonly type: 'SET_GFR'; readonly payload: number | null }

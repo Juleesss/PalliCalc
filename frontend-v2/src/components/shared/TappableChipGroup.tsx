@@ -1,3 +1,4 @@
+import { useRef, useCallback } from 'react';
 import TappableChip from './TappableChip.tsx';
 
 interface ChipOption {
@@ -20,6 +21,42 @@ export default function TappableChipGroup({
   label,
   disabled = false,
 }: TappableChipGroupProps) {
+  const groupRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (disabled || options.length === 0) return;
+
+      const currentIdx = options.findIndex((o) => o.value === value);
+      let nextIdx = -1;
+
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'ArrowDown':
+          e.preventDefault();
+          nextIdx = currentIdx < options.length - 1 ? currentIdx + 1 : 0;
+          break;
+        case 'ArrowLeft':
+        case 'ArrowUp':
+          e.preventDefault();
+          nextIdx = currentIdx > 0 ? currentIdx - 1 : options.length - 1;
+          break;
+        default:
+          return;
+      }
+
+      if (nextIdx >= 0) {
+        onChange(options[nextIdx].value);
+        // Focus the newly selected chip
+        const buttons = groupRef.current?.querySelectorAll<HTMLButtonElement>(
+          'button[role="radio"]',
+        );
+        buttons?.[nextIdx]?.focus();
+      }
+    },
+    [options, value, onChange, disabled],
+  );
+
   return (
     <div>
       {label && (
@@ -27,7 +64,13 @@ export default function TappableChipGroup({
           {label}
         </label>
       )}
-      <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
+      <div
+        ref={groupRef}
+        role="radiogroup"
+        aria-label={label}
+        className="flex flex-wrap gap-2"
+        onKeyDown={handleKeyDown}
+      >
         {options.map((option) => (
           <TappableChip
             key={option.value}
@@ -35,6 +78,7 @@ export default function TappableChipGroup({
             selected={value === option.value}
             onClick={() => onChange(option.value)}
             disabled={disabled}
+            tabIndex={value === option.value ? 0 : -1}
           />
         ))}
       </div>

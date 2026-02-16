@@ -263,6 +263,13 @@ const en: Record<string, string> = {
   'a11y.languageToggle': 'Language toggle',
   'a11y.removeDrug': 'Remove drug',
   'a11y.addDrug': 'Add drug',
+
+  // ---------------------------------------------------------------------------
+  // Drug Combobox Fallbacks
+  // ---------------------------------------------------------------------------
+  'drug.select': 'Select drug',
+  'drug.searchPlaceholder': 'Search...',
+  'drug.noResults': 'No results found',
 };
 
 export default en;

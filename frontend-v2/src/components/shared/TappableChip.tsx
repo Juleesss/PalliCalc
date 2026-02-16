@@ -3,6 +3,7 @@ interface TappableChipProps {
   readonly selected: boolean;
   readonly onClick: () => void;
   readonly disabled?: boolean;
+  readonly tabIndex?: number;
 }
 
 export default function TappableChip({
@@ -10,6 +11,7 @@ export default function TappableChip({
   selected,
   onClick,
   disabled = false,
+  tabIndex,
 }: TappableChipProps) {
   return (
     <button
@@ -18,6 +20,7 @@ export default function TappableChip({
       aria-checked={selected}
       disabled={disabled}
       onClick={onClick}
+      tabIndex={tabIndex}
       className={`
         inline-flex items-center justify-center
         min-h-12 min-w-16 px-4 py-2

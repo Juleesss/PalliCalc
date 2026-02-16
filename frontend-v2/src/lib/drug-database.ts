@@ -253,7 +253,6 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     irTabletSizes: {},
     isWarningDrug: true,
     blockedAsTarget: true,
-    blockedAsSource: true,
   },
 
   // =========================================================================
@@ -262,7 +261,7 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
   {
     id: 'pethidine',
     displayName: { hu: 'Petidin', en: 'Pethidine' },
-    routes: ['sc/iv', 'oral'],
+    routes: ['sc/iv'],
     unit: 'mg',
     brands: [
       { name: 'Pethidine', drug: 'pethidine', routeHint: 'sc/iv', form: 'injekció' },

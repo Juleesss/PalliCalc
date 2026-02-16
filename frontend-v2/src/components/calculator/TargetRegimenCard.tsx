@@ -6,6 +6,7 @@ import NumberInput from '../shared/NumberInput.tsx';
 import InlineWarning from '../shared/InlineWarning.tsx';
 import { useCalculator } from './CalculatorProvider.tsx';
 import { useLanguage } from '../../i18n/LanguageContext.tsx';
+import type { Language } from '../../lib/types.ts';
 import { findDrugById } from '../../lib/drug-database.ts';
 import { computeTargetRegimen, calculateTdd, drugDoseToOme } from '../../lib/conversions.ts';
 import {
@@ -40,7 +41,7 @@ const TARGET_EXCLUDED_DRUGS = ['nalbuphine', 'pethidine'] as const;
 
 export default function TargetRegimenCard() {
   const { state, dispatch } = useCalculator();
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
 
   const targetDrugDef = useMemo(
     () => (state.targetDrug ? findDrugById(state.targetDrug) : undefined),
@@ -95,9 +96,10 @@ export default function TargetRegimenCard() {
   // Handle target drug change
   const handleTargetDrugChange = useCallback(
     (drugId: string, route?: string) => {
-      dispatch({ type: 'SET_TARGET_DRUG', payload: drugId });
       if (route) {
-        dispatch({ type: 'SET_TARGET_ROUTE', payload: route });
+        dispatch({ type: 'SET_TARGET_DRUG_WITH_ROUTE', payload: { drug: drugId, route } });
+      } else {
+        dispatch({ type: 'SET_TARGET_DRUG', payload: drugId });
       }
     },
     [dispatch],
@@ -106,7 +108,7 @@ export default function TargetRegimenCard() {
   // Handle GFR change
   const handleGfrChange = useCallback(
     (value: number) => {
-      dispatch({ type: 'SET_GFR', payload: value > 0 ? value : null });
+      dispatch({ type: 'SET_GFR', payload: value >= 0 ? value : null });
     },
     [dispatch],
   );
@@ -144,6 +146,7 @@ export default function TargetRegimenCard() {
       state.gfr,
       state.bmi,
       state.gender,
+      lang as Language,
     );
 
     dispatch({ type: 'CALCULATE', payload: result });
@@ -164,6 +167,7 @@ export default function TargetRegimenCard() {
     state.gfr,
     state.bmi,
     state.gender,
+    lang,
     dispatch,
   ]);
 

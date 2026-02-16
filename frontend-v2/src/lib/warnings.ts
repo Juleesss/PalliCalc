@@ -12,8 +12,8 @@ import type { WarningItem, GfrRiskLevel } from './types';
 
 const GFR_DRUG_RISK: Record<string, GfrRiskLevel> = {
   morphine:        'avoid',
-  codeine:         'contraindicated',
-  dihydrocodeine:  'contraindicated',
+  codeine:         'avoid',
+  dihydrocodeine:  'avoid',
   pethidine:       'contraindicated',
   oxycodone:       'caution',
   hydromorphone:   'caution',
@@ -36,17 +36,17 @@ export function getGfrWarnings(gfr: number | null): WarningItem[] {
 
   const warnings: WarningItem[] = [];
 
+  // GFR < 30: standard warning (always shown when GFR < 30)
+  warnings.push({
+    type: 'danger',
+    messageKey: 'warning.gfr.below30',
+  });
+
   if (gfr < 10) {
-    // GFR < 10: more severe warning
+    // GFR < 10: additional severe warning
     warnings.push({
       type: 'danger',
-      messageKey: 'gfr.warning.below10',
-    });
-  } else {
-    // GFR 10-29: standard warning
-    warnings.push({
-      type: 'danger',
-      messageKey: 'gfr.warning.below30',
+      messageKey: 'warning.gfr.below10',
     });
   }
 
@@ -73,7 +73,7 @@ export function getGfrDrugAdvice(drugId: string, gfr: number | null): WarningIte
     case 'avoid':
       warnings.push({
         type: 'danger',
-        messageKey: 'gfr.drug.avoid',
+        messageKey: 'warning.gfr.drug.avoid',
         params: { drug: drugId },
       });
       break;
@@ -81,7 +81,7 @@ export function getGfrDrugAdvice(drugId: string, gfr: number | null): WarningIte
     case 'contraindicated':
       warnings.push({
         type: 'danger',
-        messageKey: 'gfr.drug.contraindicated',
+        messageKey: 'warning.gfr.drug.contraindicated',
         params: { drug: drugId },
       });
       break;
@@ -89,7 +89,7 @@ export function getGfrDrugAdvice(drugId: string, gfr: number | null): WarningIte
     case 'caution':
       warnings.push({
         type: 'caution',
-        messageKey: 'gfr.drug.caution',
+        messageKey: 'warning.gfr.drug.caution',
         params: { drug: drugId },
       });
       break;
@@ -97,7 +97,7 @@ export function getGfrDrugAdvice(drugId: string, gfr: number | null): WarningIte
     case 'preferred':
       warnings.push({
         type: 'preferred',
-        messageKey: 'gfr.drug.preferred',
+        messageKey: 'warning.gfr.drug.preferred',
         params: { drug: drugId },
       });
       break;
@@ -140,13 +140,13 @@ export function getBmiWarnings(bmi: string | null): WarningItem[] {
     case 'low':
       return [{
         type: 'caution',
-        messageKey: 'bmi.warning.low',
+        messageKey: 'warning.bmi.low',
       }];
 
     case 'high':
       return [{
         type: 'caution',
-        messageKey: 'bmi.warning.high',
+        messageKey: 'warning.bmi.high',
       }];
 
     default:
@@ -167,7 +167,7 @@ export function getGenderWarnings(gender: string | null): WarningItem[] {
   if (gender === 'female') {
     return [{
       type: 'caution',
-      messageKey: 'gender.warning.female',
+      messageKey: 'warning.gender.female',
     }];
   }
   return [];
@@ -189,7 +189,7 @@ export function getDrugWarnings(drugId: string, isTarget: boolean): WarningItem[
     case 'methadone':
       warnings.push({
         type: 'danger',
-        messageKey: 'drug.methadone.warning',
+        messageKey: 'warning.drug.methadone',
       });
       break;
 
@@ -198,12 +198,12 @@ export function getDrugWarnings(drugId: string, isTarget: boolean): WarningItem[
       if (isTarget) {
         warnings.push({
           type: 'danger',
-          messageKey: 'drug.nalbuphine.blocked',
+          messageKey: 'warning.drug.nalbuphine.target',
         });
       } else {
         warnings.push({
           type: 'danger',
-          messageKey: 'drug.nalbuphine.sourceWarning',
+          messageKey: 'warning.drug.nalbuphine.source',
         });
       }
       break;
@@ -213,12 +213,12 @@ export function getDrugWarnings(drugId: string, isTarget: boolean): WarningItem[
       if (isTarget) {
         warnings.push({
           type: 'danger',
-          messageKey: 'drug.pethidine.blocked',
+          messageKey: 'warning.drug.pethidine.target',
         });
       } else {
         warnings.push({
           type: 'danger',
-          messageKey: 'drug.pethidine.sourceWarning',
+          messageKey: 'warning.drug.pethidine.source',
         });
       }
       break;
@@ -233,7 +233,7 @@ export function getDrugWarnings(drugId: string, isTarget: boolean): WarningItem[
     case 'oxycodone-naloxone':
       warnings.push({
         type: 'info',
-        messageKey: 'drug.oxycodoneNaloxone.hepaticWarning',
+        messageKey: 'warning.drug.oxycodone_naloxone.hepatic',
       });
       break;
 
@@ -255,7 +255,7 @@ export function getDrugRouteWarnings(drugId: string, route: string, _isTarget: b
   if (drugId === 'fentanyl' && route === 'oral/mucosal') {
     warnings.push({
       type: 'caution',
-      messageKey: 'drug.fentanyl.transmucosal',
+      messageKey: 'warning.drug.fentanyl.mucosal',
     });
   }
 
@@ -263,7 +263,7 @@ export function getDrugRouteWarnings(drugId: string, route: string, _isTarget: b
   if (drugId === 'fentanyl' && route === 'patch') {
     warnings.push({
       type: 'info',
-      messageKey: 'drug.fentanyl.patchOnsetDelay',
+      messageKey: 'patch.onset',
     });
   }
 
@@ -283,15 +283,15 @@ export function getMinDoseWarning(drugId: string, calculatedDose: number): Warni
   const minDoses: Record<string, { minMg: number; messageKey: string }> = {
     oxycodone: {
       minMg: 10,
-      messageKey: 'drug.oxycodone.minDose',
+      messageKey: 'warning.drug.oxycodone.minOxyContin',
     },
     morphine: {
       minMg: 10,
-      messageKey: 'drug.morphine.minDose',
+      messageKey: 'warning.drug.minDose',
     },
     hydromorphone: {
       minMg: 4,
-      messageKey: 'drug.hydromorphone.minDose',
+      messageKey: 'warning.drug.minDose',
     },
   };
 
@@ -303,8 +303,8 @@ export function getMinDoseWarning(drugId: string, calculatedDose: number): Warni
       type: 'caution',
       messageKey: entry.messageKey,
       params: {
-        calculatedDose: Math.round(calculatedDose * 10) / 10,
-        minDose: entry.minMg,
+        calculated: Math.round(calculatedDose * 10) / 10,
+        min: entry.minMg,
       },
     };
   }
@@ -323,7 +323,7 @@ export function getTramadolCeilingWarning(dailyDoseMg: number): WarningItem | nu
   if (dailyDoseMg > 400) {
     return {
       type: 'danger',
-      messageKey: 'warning.tramadol.maxDose',
+      messageKey: 'warning.drug.tramadol.max',
       params: { dose: Math.round(dailyDoseMg) },
     };
   }
@@ -358,6 +358,8 @@ export function isBlockedAsTarget(drugId: string): boolean {
 /**
  * Check if a drug is blocked as a source (cannot convert its dose to OME reliably).
  */
-export function isBlockedAsSource(drugId: string): boolean {
-  return drugId === 'nalbuphine';
+export function isBlockedAsSource(_drugId: string): boolean {
+  // No drugs are hard-blocked as source; nalbuphine and pethidine
+  // show warnings but are allowed for entry per clinical reference.
+  return false;
 }

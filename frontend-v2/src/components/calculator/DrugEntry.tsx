@@ -150,7 +150,7 @@ export default function DrugEntry({
         <button
           type="button"
           onClick={onRemove}
-          className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400"
+          className="absolute top-1 right-1 w-11 h-11 flex items-center justify-center rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400"
           aria-label={t('a11y.removeDrug')}
         >
           <svg
