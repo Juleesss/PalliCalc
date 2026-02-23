@@ -259,6 +259,14 @@ export function getDrugRouteWarnings(drugId: string, route: string, _isTarget: b
     });
   }
 
+  // Oral hydromorphone: hydration warning
+  if (drugId === 'hydromorphone' && route === 'oral') {
+    warnings.push({
+      type: 'caution',
+      messageKey: 'warning.drug.hydromorphone.hydration',
+    });
+  }
+
   // Fentanyl patch clinical alerts
   if (drugId === 'fentanyl' && route === 'patch') {
     warnings.push({

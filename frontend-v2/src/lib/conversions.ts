@@ -13,10 +13,9 @@ import type {
   TargetResult,
   WarningItem,
   DoseDistribution,
-  TabletCount,
 } from './types';
-import { getTabletSizes, getIrTabletSizes } from './drug-database';
-import { distributeToTablets, roundToTablets, tabletTotal } from './tablet-rounding';
+import { getTabletSizes, findDrugById } from './drug-database';
+import { distributeToTablets } from './tablet-rounding';
 import { combinePatchSizes, omeToFentanylMcgHr } from './patch-calculator';
 import {
   getDrugWarnings,
@@ -287,6 +286,20 @@ export function computeTargetRegimen(
   let roundingDeltaPct = 0;
 
   if (isMethadone) {
+    // Methadone accumulation warning — always shown
+    warnings.push({
+      type: 'danger',
+      messageKey: 'warning.drug.methadone.accumulation',
+    });
+
+    // Methadone rotation restriction: only allowed when totalOme ≈ 10 mg
+    if (Math.abs(totalOme - 10) >= 0.01) {
+      warnings.push({
+        type: 'danger',
+        messageKey: 'warning.drug.methadone.restricted',
+      });
+    }
+
     // Methadone: use Ripamonti non-linear conversion
     targetTdd = omeToMethadone(reducedOme);
     actualTdd = targetTdd;
@@ -342,6 +355,28 @@ export function computeTargetRegimen(
       });
     }
 
+    // Check dihydrocodeine max dose
+    if (targetDrug === 'dihydrocodeine' && actualTdd > 240) {
+      warnings.push({
+        type: 'danger',
+        messageKey: 'warning.drug.dhc.max',
+        params: { dose: Math.round(actualTdd) },
+      });
+    }
+
+    // Minor opioid rotation guard: block if calculated TDD exceeds max daily dose
+    const MINOR_OPIOIDS = ['tramadol', 'codeine', 'dihydrocodeine'];
+    if (MINOR_OPIOIDS.includes(targetDrug)) {
+      const drugDef = findDrugById(targetDrug);
+      if (drugDef?.maxDailyDose && actualTdd > drugDef.maxDailyDose) {
+        warnings.push({
+          type: 'danger',
+          messageKey: 'warning.drug.minorOpioid.exceedsMax',
+          params: { drug: targetDrug, max: drugDef.maxDailyDose, dose: Math.round(actualTdd) },
+        });
+      }
+    }
+
     // Check minimum dose per administration
     if (dividedDoses.length > 0) {
       for (const dose of dividedDoses) {
@@ -354,56 +389,12 @@ export function computeTargetRegimen(
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Step 6: Breakthrough dose calculation
-  // -----------------------------------------------------------------------
-  let breakthroughSingleDose = 0;
-  let breakthroughMaxDaily = 0;
-  let breakthroughTablets: TabletCount[] = [];
-
-  if (isPatch) {
-    // For patch: breakthrough is in oral morphine mg
-    // Breakthrough = reducedOme / 6
-    breakthroughSingleDose = reducedOme / 6;
-    // Round to morphine IR tablet sizes
-    const morphineIrSizes = getIrTabletSizes('morphine');
-    if (morphineIrSizes.length > 0) {
-      breakthroughTablets = roundToTablets(breakthroughSingleDose, morphineIrSizes);
-      breakthroughSingleDose = tabletTotal(breakthroughTablets);
-    }
-    breakthroughMaxDaily = breakthroughSingleDose * 6;
-  } else if (!isMethadone && !isInjectable) {
-    // For oral drugs: breakthrough = actualTdd / 6, rounded to IR tablets
-    breakthroughSingleDose = actualTdd / 6;
-    const irSizes = getIrTabletSizes(targetDrug);
-    if (irSizes.length > 0) {
-      breakthroughTablets = roundToTablets(breakthroughSingleDose, irSizes);
-      breakthroughSingleDose = tabletTotal(breakthroughTablets);
-    }
-    breakthroughMaxDaily = breakthroughSingleDose * 6;
-  } else if (isInjectable) {
-    // Injectable breakthrough: exact dose, TDD / 6
-    breakthroughSingleDose = actualTdd / 6;
-    breakthroughMaxDaily = breakthroughSingleDose * 6;
-  }
-
-  // Escalation warning always added for breakthrough
-  if (breakthroughMaxDaily > 0) {
-    warnings.push({
-      type: 'info',
-      messageKey: 'warning.breakthrough.escalation',
-    });
-  }
-
   return {
     totalOme: Math.round(totalOme * 100) / 100,
     reducedOme: Math.round(reducedOme * 100) / 100,
     targetTdd: Math.round(targetTdd * 100) / 100,
     actualTdd: Math.round(actualTdd * 100) / 100,
     dividedDoses,
-    breakthroughSingleDose: Math.round(breakthroughSingleDose * 100) / 100,
-    breakthroughMaxDaily: Math.round(breakthroughMaxDaily * 100) / 100,
-    breakthroughTablets,
     patchCombination,
     roundingDeltaPct: Math.round(roundingDeltaPct * 10) / 10,
     warnings,

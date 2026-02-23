@@ -42,9 +42,6 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     tabletSizes: {
       'oral': [10, 30, 60, 100],  // MST Continus retard
     },
-    irTabletSizes: {
-      'oral': [10],  // Sevredol IR — only 10mg confirmed in HU
-    },
     minDose: {
       'oral': 10,  // Smallest MST Continus
     },
@@ -69,9 +66,6 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     tabletSizes: {
       'oral': [5, 10, 20, 40, 80],  // Codoxy retard has full range
     },
-    irTabletSizes: {
-      'oral': [5, 10, 20],  // Codoxy Rapid / Oxycodone Sandoz
-    },
     minDose: {
       'oral': 10,  // OxyContin minimum dose in Hungary (user requirement)
     },
@@ -93,10 +87,6 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     ],
     tabletSizes: {
       'oral': [5, 10, 20, 40],  // Targin / Oxynal / Neuraxpharm (oxycodone component)
-    },
-    irTabletSizes: {
-      // No dedicated IR form for oxy+nal; use oxycodone IR for breakthrough
-      'oral': [5, 10, 20],
     },
     minDose: {
       'oral': 5,
@@ -130,7 +120,6 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     tabletSizes: {
       'patch': [12, 25, 50, 75, 100],  // mcg/hr
     },
-    irTabletSizes: {},
   },
 
   // =========================================================================
@@ -147,9 +136,6 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     ],
     tabletSizes: {
       'oral': [4, 8, 16, 32],  // Jurnista retard (q24h)
-    },
-    irTabletSizes: {
-      'oral': [1.3, 2.6],  // Palladone IR (limited availability)
     },
     minDose: {
       'oral': 4,  // Jurnista minimum
@@ -179,9 +165,6 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     tabletSizes: {
       'oral': [100, 150, 200],  // Retard formulations
     },
-    irTabletSizes: {
-      'oral': [50],  // Contramal / Ralgen / etc. IR capsule
-    },
     maxDailyDose: 400,
   },
 
@@ -199,7 +182,7 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     tabletSizes: {
       'oral': [60],  // Only 60mg confirmed in Hungary
     },
-    irTabletSizes: {},
+    maxDailyDose: 240,
   },
 
   // =========================================================================
@@ -213,9 +196,6 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     brands: [],
     tabletSizes: {
       'oral': [15, 30, 60],  // Common codeine tablet sizes
-    },
-    irTabletSizes: {
-      'oral': [15, 30],
     },
   },
 
@@ -234,7 +214,6 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     tabletSizes: {
       'oral': [5, 10, 20, 40],  // Metadon EP
     },
-    irTabletSizes: {},
     isWarningDrug: true,
   },
 
@@ -250,7 +229,6 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
       { name: 'Nalpain', drug: 'nalbuphine', routeHint: 'sc/iv', form: 'oldatos injekció' },
     ],
     tabletSizes: {},
-    irTabletSizes: {},
     isWarningDrug: true,
     blockedAsTarget: true,
   },
@@ -267,7 +245,6 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
       { name: 'Pethidine', drug: 'pethidine', routeHint: 'sc/iv', form: 'injekció' },
     ],
     tabletSizes: {},
-    irTabletSizes: {},
     isWarningDrug: true,
     blockedAsTarget: true,
   },
@@ -314,28 +291,6 @@ export function getTabletSizes(drugId: string, route: string): number[] {
   if (!sizes || sizes.length === 0) return [];
 
   return [...sizes].sort((a, b) => a - b);
-}
-
-/**
- * Get IR (immediate-release) tablet sizes for breakthrough dosing.
- * Falls back to checking the same drug's IR sizes, then the regular sizes.
- */
-export function getIrTabletSizes(drugId: string): number[] {
-  const drug = findDrugById(drugId);
-  if (!drug) return [];
-
-  // Check IR tablet sizes for oral route (most common for breakthrough)
-  const irSizes = drug.irTabletSizes?.['oral'];
-  if (irSizes && irSizes.length > 0) {
-    return [...irSizes].sort((a, b) => a - b);
-  }
-
-  // Fallback: for oxycodone-naloxone, use oxycodone IR
-  if (drugId === 'oxycodone-naloxone') {
-    return getIrTabletSizes('oxycodone');
-  }
-
-  return [];
 }
 
 /**

@@ -53,8 +53,6 @@ export interface DrugDefinition {
   readonly brands: readonly BrandEntry[];
   /** Available tablet/formulation sizes per route. Key = route string. */
   readonly tabletSizes: Record<string, readonly number[]>;
-  /** IR (immediate-release) tablet sizes per route, for breakthrough dosing. */
-  readonly irTabletSizes?: Record<string, readonly number[]>;
   /** Minimum single dose constraint (e.g. OxyContin 10mg). */
   readonly minDose?: Record<string, number>;
   /** Maximum daily dose (e.g. tramadol 400mg). */
@@ -142,12 +140,6 @@ export interface TargetResult {
   readonly actualTdd: number;
   /** Divided doses with tablet breakdowns. */
   readonly dividedDoses: readonly DoseDistribution[];
-  /** Breakthrough single dose (mg or mcg depending on drug). */
-  readonly breakthroughSingleDose: number;
-  /** Maximum daily breakthrough total. */
-  readonly breakthroughMaxDaily: number;
-  /** Breakthrough tablet breakdown. */
-  readonly breakthroughTablets: readonly TabletCount[];
   /** Fentanyl patch combination (only when target is patch). */
   readonly patchCombination: readonly PatchCombination[];
   /** How far the rounded TDD is from the calculated TDD, as a percentage. */

@@ -5,7 +5,7 @@ import { useCalculator } from './CalculatorProvider.tsx';
 import { useLanguage } from '../../i18n/LanguageContext.tsx';
 import { findDrugById } from '../../lib/drug-database.ts';
 import { formatTabletBreakdown, formatPatchCombination, formatFrequency } from '../../lib/formatting.ts';
-import type { WarningItem, DoseDistribution, PatchCombination, TabletCount } from '../../lib/types.ts';
+import type { WarningItem, DoseDistribution, PatchCombination } from '../../lib/types.ts';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -154,91 +154,6 @@ function PracticalDosingTable({
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-function BreakthroughDoseDisplay({
-  breakthroughSingleDose,
-  breakthroughMaxDaily,
-  breakthroughTablets,
-  t,
-}: {
-  breakthroughSingleDose: number;
-  breakthroughMaxDaily: number;
-  breakthroughTablets: readonly TabletCount[];
-  t: (key: string, params?: Record<string, string | number>) => string;
-}) {
-  if (breakthroughSingleDose <= 0) return null;
-
-  return (
-    <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-      <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide">
-        {t('results.breakthrough.title')}
-      </h3>
-
-      <div className="text-sm text-gray-700">
-        {t('results.breakthrough.single', { value: breakthroughSingleDose })}
-        {breakthroughTablets.length > 0 && (
-          <span className="text-xs text-gray-500 ml-1">
-            {t('results.breakthrough.tablets', {
-              tablets: formatTabletBreakdown(breakthroughTablets),
-            })}
-          </span>
-        )}
-      </div>
-
-      <div className="text-sm text-gray-700">
-        {t('results.breakthrough.max', {
-          single: breakthroughSingleDose,
-          total: breakthroughMaxDaily,
-        })}
-      </div>
-
-      <InlineWarning variant="caution">
-        {t('results.breakthrough.escalation')}
-      </InlineWarning>
-    </div>
-  );
-}
-
-function PatchBreakthroughDisplay({
-  breakthroughSingleDose,
-  breakthroughMaxDaily,
-  breakthroughTablets,
-  t,
-}: {
-  breakthroughSingleDose: number;
-  breakthroughMaxDaily: number;
-  breakthroughTablets: readonly TabletCount[];
-  t: (key: string, params?: Record<string, string | number>) => string;
-}) {
-  if (breakthroughSingleDose <= 0) return null;
-
-  return (
-    <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-      <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide">
-        {t('results.breakthrough.title')}
-      </h3>
-      <div className="text-sm text-gray-700">
-        {t('results.breakthrough.singleMorphine', { value: breakthroughSingleDose })}
-        {breakthroughTablets.length > 0 && (
-          <span className="text-xs text-gray-500 ml-1">
-            {t('results.breakthrough.tablets', {
-              tablets: formatTabletBreakdown(breakthroughTablets),
-            })}
-          </span>
-        )}
-      </div>
-      <div className="text-sm text-gray-700">
-        {t('results.breakthrough.max', {
-          single: breakthroughSingleDose,
-          total: breakthroughMaxDaily,
-        })}
-      </div>
-      <InlineWarning variant="caution">
-        {t('results.breakthrough.escalation')}
-      </InlineWarning>
     </div>
   );
 }
@@ -442,27 +357,7 @@ export default function ResultsCard() {
           </div>
         )}
 
-        {/* D. Breakthrough Dose (non-patch) */}
-        {!isPatch && (
-          <BreakthroughDoseDisplay
-            breakthroughSingleDose={result.breakthroughSingleDose}
-            breakthroughMaxDaily={result.breakthroughMaxDaily}
-            breakthroughTablets={result.breakthroughTablets}
-            t={t}
-          />
-        )}
-
-        {/* Patch breakthrough (oral morphine equivalent) */}
-        {isPatch && result.breakthroughSingleDose > 0 && (
-          <PatchBreakthroughDisplay
-            breakthroughSingleDose={result.breakthroughSingleDose}
-            breakthroughMaxDaily={result.breakthroughMaxDaily}
-            breakthroughTablets={result.breakthroughTablets}
-            t={t}
-          />
-        )}
-
-        {/* E. Patch Combination Display */}
+        {/* D. Patch Combination Display */}
         {isPatch && (
           <PatchCombinationDisplay
             patchCombination={result.patchCombination}

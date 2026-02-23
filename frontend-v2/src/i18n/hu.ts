@@ -149,6 +149,10 @@ const hu: Record<string, string> = {
   // ---------------------------------------------------------------------------
   'warning.drug.methadone':
     'FIGYELEM: A metadon nem-lineáris farmakokinetikával rendelkezik. A számított dózis csak tájékoztató jellegű — a beállítást szakorvos végezze, EKG (QTc) monitorozás mellett, 5-7 napos egyensúlyi idő figyelembevételével.',
+  'warning.drug.methadone.accumulation':
+    'A metadon felezési ideje hosszú, ezért akkumulálódhat. Egyetlen, a tüneteket enyhítő dózis naponta történő ismétlődő bevétele akkumulációhoz és halálhoz vezethet!',
+  'warning.drug.methadone.restricted':
+    'Metadonra történő rotáció csak akkor engedélyezett, ha az OME érték pontosan 10 mg.',
   'warning.drug.nalbuphine.source':
     'Figyelem: A nalbufin parciális agonista/antagonista. Tiszta mu-agonistáról történő váltáskor megvonási tüneteket okozhat.',
   'warning.drug.nalbuphine.target':
@@ -158,21 +162,21 @@ const hu: Record<string, string> = {
   'warning.drug.pethidine.source':
     'Figyelem: A petidin neurotoxikus metabolitot (norpetidin) termel. Hosszú távú használata nem javasolt.',
   'warning.drug.tramadol.max':
-    'Figyelem: A tramadol maximális napi dózisa 400mg. A számított dózis meghaladja ezt a határt.',
+    '400 mg tramadol hidrokloridnak megfelelő teljes napi adagokat nem szabad túllépni.',
+  'warning.drug.dhc.max':
+    'A napi 240 mg feletti DHC adagolásáról nincs elegendő klinikai tapasztalat. 5 mg/ttkg dózis már letális lehet.',
+  'warning.drug.hydromorphone.hydration':
+    'A hidromorfon orális rotációja csak megfelelően hidratált betegek esetén javasolt. Biztosítson megfelelő napi folyadékbevitelt!',
   'warning.drug.fentanyl.mucosal':
     'A transzmukozális fentanil egyéni titrálást igényel — nem konvertálható lineárisan más opioidokról.',
   'warning.drug.minDose':
     'A minimális elérhető dózis {min} mg. A számított dózis ({calculated} mg) ez alatt van.',
   'warning.drug.oxycodone.minOxyContin':
     'Az OxyContin legkisebb elérhető adagja Magyarországon 10 mg.',
+  'warning.drug.minorOpioid.exceedsMax':
+    'A számított dózis ({dose} mg/nap) meghaladja a gyógyszer maximális napi adagját ({max} mg). Minor opioidra történő rotáció nem javasolt ilyen dózis mellett.',
   'warning.drug.oxycodone_naloxone.hepatic':
     'Oxikodon+naloxon kombináció közepesen súlyos vagy súlyos májkárosodás esetén ellenjavallt! Ilyen esetben tiszta oxikodon vagy más opioid alkalmazandó.',
-
-  // ---------------------------------------------------------------------------
-  // Breakthrough Pain Warnings
-  // ---------------------------------------------------------------------------
-  'warning.breakthrough.escalation':
-    'Ha ennél több szükséges, az alap dózis emelendő!',
 
   // ---------------------------------------------------------------------------
   // Fentanyl Patch Notes
@@ -197,12 +201,6 @@ const hu: Record<string, string> = {
   'results.dosingTitle': 'ADAGOLÁSI JAVASLAT ({frequency})',
   'results.tabletsPerDay': '{count} tabl./nap',
   'results.roundingNote': 'Számított: {calculated} mg \u2192 Kerekítve: {rounded} mg ({delta}%)',
-  'results.breakthrough.title': 'ÁTTÖRÉSES FÁJDALOM',
-  'results.breakthrough.single': 'Egyszeri dózis: {value} mg',
-  'results.breakthrough.singleMorphine': 'Egyszeri dózis: {value} mg orális Morfin',
-  'results.breakthrough.tablets': '({tablets})',
-  'results.breakthrough.max': 'Max. napi áttöréses összadag: 6 \u00d7 {single} = {total} mg',
-  'results.breakthrough.escalation': 'Ha ennél több szükséges, az alap dózis emelendő!',
   'results.patch.title': 'TAPASZ KOMBINÁCIÓ',
   'results.patch.total': 'Összesen: {value} mcg/óra',
   'results.patch.change': 'Tapaszcsere 72 óránként',

@@ -149,6 +149,10 @@ const en: Record<string, string> = {
   // ---------------------------------------------------------------------------
   'warning.drug.methadone':
     'WARNING: Methadone has non-linear pharmacokinetics. The calculated dose is for reference only \u2014 titration should be performed by a specialist with ECG (QTc) monitoring, allowing 5-7 days for steady state.',
+  'warning.drug.methadone.accumulation':
+    'Methadone has a long half-life and may accumulate. Repeated daily administration of a single symptom-relieving dose can lead to accumulation and death!',
+  'warning.drug.methadone.restricted':
+    'Rotation to methadone is only allowed when the OME value is exactly 10 mg.',
   'warning.drug.nalbuphine.source':
     'Warning: Nalbuphine is a partial agonist/antagonist. Switching from a pure mu-agonist may precipitate withdrawal symptoms.',
   'warning.drug.nalbuphine.target':
@@ -159,20 +163,20 @@ const en: Record<string, string> = {
     'Warning: Pethidine produces a neurotoxic metabolite (norpethidine). Long-term use is not recommended.',
   'warning.drug.tramadol.max':
     'Warning: The maximum daily dose of tramadol is 400mg. The calculated dose exceeds this limit.',
+  'warning.drug.dhc.max':
+    'There is insufficient clinical experience with DHC doses above 240 mg/day. A dose of 5 mg/kg body weight can already be lethal.',
+  'warning.drug.hydromorphone.hydration':
+    'Rotation to oral hydromorphone is recommended only in well-hydrated patients. Ensure adequate daily fluid intake!',
   'warning.drug.fentanyl.mucosal':
     'Transmucosal fentanyl requires individual titration \u2014 it cannot be linearly converted from other opioids.',
   'warning.drug.minDose':
     'The minimum available dose is {min} mg. The calculated dose ({calculated} mg) is below this.',
   'warning.drug.oxycodone.minOxyContin':
     'The smallest available OxyContin dose in Hungary is 10 mg.',
+  'warning.drug.minorOpioid.exceedsMax':
+    'The calculated dose ({dose} mg/day) exceeds the maximum daily dose for this drug ({max} mg). Rotation to a minor opioid is not recommended at this dose level.',
   'warning.drug.oxycodone_naloxone.hepatic':
     'Oxycodone+naloxone combination is contraindicated in moderate-to-severe hepatic impairment! Use pure oxycodone or another opioid in such cases.',
-
-  // ---------------------------------------------------------------------------
-  // Breakthrough Pain Warnings
-  // ---------------------------------------------------------------------------
-  'warning.breakthrough.escalation':
-    'If more is needed, the base dose should be increased!',
 
   // ---------------------------------------------------------------------------
   // Fentanyl Patch Notes
@@ -197,12 +201,6 @@ const en: Record<string, string> = {
   'results.dosingTitle': 'DOSING SUGGESTION ({frequency})',
   'results.tabletsPerDay': '{count} tab./day',
   'results.roundingNote': 'Calculated: {calculated} mg \u2192 Rounded: {rounded} mg ({delta}%)',
-  'results.breakthrough.title': 'BREAKTHROUGH PAIN',
-  'results.breakthrough.single': 'Single dose: {value} mg',
-  'results.breakthrough.singleMorphine': 'Single dose: {value} mg oral Morphine',
-  'results.breakthrough.tablets': '({tablets})',
-  'results.breakthrough.max': 'Max. daily breakthrough total: 6 \u00d7 {single} = {total} mg',
-  'results.breakthrough.escalation': 'If more is needed, the base dose should be increased!',
   'results.patch.title': 'PATCH COMBINATION',
   'results.patch.total': 'Total: {value} mcg/hr',
   'results.patch.change': 'Patch change every 72 hours',
