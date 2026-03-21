@@ -42,6 +42,23 @@ export interface BrandEntry {
   readonly drug: string;
   readonly routeHint?: string;
   readonly form?: string;
+  /** Whether the product has a persistent supply shortage. */
+  readonly unavailable?: boolean;
+}
+
+/** Formulation type for distinguishing retard vs immediate-release. */
+export type FormulationType = 'retard' | 'ir' | 'injectable' | 'patch';
+
+/** Tablet sizes for a specific formulation type. */
+export interface FormulationSizes {
+  readonly type: FormulationType;
+  readonly sizes: readonly number[];
+  /** Which sizes can be halved (scored tablets). */
+  readonly splittable?: readonly number[];
+  /** Valid dosing frequencies (doses/day) for this formulation. */
+  readonly validFrequencies?: readonly number[];
+  /** Whether this formulation is suitable for baseline therapy, breakthrough, or both. */
+  readonly suitableFor?: 'baseline' | 'breakthrough' | 'both';
 }
 
 /** Complete definition of a single opioid drug. */
@@ -53,10 +70,16 @@ export interface DrugDefinition {
   readonly brands: readonly BrandEntry[];
   /** Available tablet/formulation sizes per route. Key = route string. */
   readonly tabletSizes: Record<string, readonly number[]>;
+  /** Formulation-aware tablet sizes (retard/IR distinction, splittability). */
+  readonly formulations?: Record<string, readonly FormulationSizes[]>;
+  /** Per-route unit override (e.g. fentanyl sc/iv uses 'mcg' not 'mg'). */
+  readonly unitPerRoute?: Record<string, string>;
   /** Minimum single dose constraint (e.g. OxyContin 10mg). */
   readonly minDose?: Record<string, number>;
   /** Maximum daily dose (e.g. tramadol 400mg). */
   readonly maxDailyDose?: number;
+  /** Maximum single dose (e.g. DHC 120mg, tramadol 200mg). */
+  readonly maxSingleDose?: number;
   /** Whether this is a warning drug (methadone, nalbuphine, pethidine). */
   readonly isWarningDrug?: boolean;
   /** Whether this drug is blocked as a conversion target. */
@@ -73,6 +96,8 @@ export interface DrugDefinition {
 export interface TabletCount {
   readonly mg: number;
   readonly count: number;
+  /** Whether this is a half-tablet (tablet was split). */
+  readonly isHalf?: boolean;
 }
 
 /** A single dose in a dosing schedule (e.g., "Morning: 50mg"). */
@@ -100,7 +125,12 @@ export interface WarningItem {
   readonly type: WarningType;
   readonly messageKey: string;
   readonly params?: Record<string, string | number>;
+  /** Optional source citation for the warning. */
+  readonly source?: string;
 }
+
+/** Patient stability for fentanyl patch SmPC table. */
+export type PatientStability = 'stable' | 'unstable';
 
 /** GFR risk level for a specific drug. */
 export type GfrRiskLevel =
@@ -178,6 +208,7 @@ export interface CalculatorState {
   readonly targetFrequency: number;
   readonly gfr: number | null;
   readonly reductionPct: number;
+  readonly patientStability: PatientStability;
   readonly result: TargetResult | null;
 }
 
@@ -197,5 +228,6 @@ export type CalculatorAction =
   | { readonly type: 'SET_TARGET_FREQUENCY'; readonly payload: number }
   | { readonly type: 'SET_GFR'; readonly payload: number | null }
   | { readonly type: 'SET_REDUCTION'; readonly payload: number }
+  | { readonly type: 'SET_PATIENT_STABILITY'; readonly payload: PatientStability }
   | { readonly type: 'CALCULATE'; readonly payload: TargetResult }
   | { readonly type: 'RESET' };

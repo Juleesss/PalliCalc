@@ -40,6 +40,11 @@ export default function PatientParametersCard() {
 
   return (
     <Card title={t('patient.title')}>
+      <div className="space-y-4">
+      {/* Disclaimer */}
+      <div className="text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
+        {t('patient.disclaimer')}
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* BMI Section */}
         <div className="space-y-2">
@@ -74,6 +79,7 @@ export default function PatientParametersCard() {
             </InlineWarning>
           ))}
         </div>
+      </div>
       </div>
     </Card>
   );

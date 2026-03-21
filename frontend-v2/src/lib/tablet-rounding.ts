@@ -1,6 +1,7 @@
 // =============================================================================
 // PalliCalc v2.0 — Smart Dose Rounding Engine
 // Rounds calculated doses to available tablet sizes with asymmetric splits.
+// Supports half-tablet rounding for splittable tablets.
 // No React imports. Pure functions.
 // =============================================================================
 
@@ -68,6 +69,18 @@ export function tabletTotal(tablets: readonly TabletCount[]): number {
   return tablets.reduce((sum, t) => sum + t.mg * t.count, 0);
 }
 
+/**
+ * Expand available sizes with half-tablet options for splittable tablets.
+ * E.g., a splittable 60mg tablet adds a 30mg option (isHalf).
+ */
+export function expandWithHalves(sizes: number[], splittable: readonly number[]): number[] {
+  const expanded = new Set(sizes);
+  for (const size of splittable) {
+    expanded.add(size / 2);
+  }
+  return [...expanded].sort((a, b) => a - b);
+}
+
 // ---------------------------------------------------------------------------
 // Main Distribution Algorithm
 // ---------------------------------------------------------------------------
@@ -75,6 +88,9 @@ export function tabletTotal(tablets: readonly TabletCount[]): number {
 /**
  * Distribute a target TDD across multiple doses, rounding to available
  * tablet sizes. Supports asymmetric dosing when equal split is not achievable.
+ *
+ * CRITICAL FIX: When rounding down gives 0mg but a valid minimum dose exists
+ * (roundToTabletsUp gives > 0), use the minimum achievable dose instead of 0.
  *
  * Algorithm (from clinical_data_reference.md section 5):
  * 1. Calculate ideal per-dose = targetTdd / numberOfDoses
@@ -107,8 +123,25 @@ export function distributeToTablets(
   // Step 2: Round down and up for symmetric dosing
   const tabletsDown = roundToTablets(idealPerDose, sizes);
   const tabletsUp = roundToTabletsUp(idealPerDose, sizes);
-  const doseDown = tabletTotal(tabletsDown);
-  const doseUp = tabletTotal(tabletsUp);
+  let doseDown = tabletTotal(tabletsDown);
+  let doseUp = tabletTotal(tabletsUp);
+
+  // CRITICAL FIX (Phase 1A): If round-down gives 0 but round-up gives > 0,
+  // use the minimum achievable dose (smallest tablet) as floor.
+  // This fixes: morphine 10mg→tramadol giving 0mg, methadone at OME=10 giving 0mg.
+  if (doseDown === 0 && doseUp > 0) {
+    doseDown = doseUp;
+    // Fall through to use doseUp as the symmetric dose
+    return createSymmetricDistribution(tabletsUp, doseUp, numberOfDoses, labels);
+  }
+
+  // Also handle the case where both are 0 (target below half of smallest tablet)
+  if (doseDown === 0 && doseUp === 0 && idealPerDose > 0) {
+    const sortedSizes = [...sizes].sort((a, b) => a - b);
+    const smallestSize = sortedSizes[0];
+    const minTablets: TabletCount[] = [{ mg: smallestSize, count: 1 }];
+    return createSymmetricDistribution(minTablets, smallestSize, numberOfDoses, labels);
+  }
 
   // Step 3: Check if symmetric rounding (all doses equal) works
   const symmetricDownTotal = doseDown * numberOfDoses;

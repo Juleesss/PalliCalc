@@ -216,11 +216,21 @@ export default function DrugCombobox({
                       {item.displayLabel}
                     </span>
                   ) : (
-                    <span className="block pl-4 text-gray-600 text-sm">
+                    <span className={`block pl-4 text-sm ${item.brand?.unavailable ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
                       {item.displayLabel}
                       {item.brand?.routeHint && (
                         <span className="ml-2 text-xs text-gray-400">
                           [{item.brand.routeHint}]
+                        </span>
+                      )}
+                      {item.brand?.form?.includes('retard') && (
+                        <span className="ml-1 text-[10px] bg-blue-100 text-blue-700 px-1 rounded">
+                          retard
+                        </span>
+                      )}
+                      {item.brand?.form?.includes('IR') && (
+                        <span className="ml-1 text-[10px] bg-green-100 text-green-700 px-1 rounded">
+                          IR
                         </span>
                       )}
                     </span>

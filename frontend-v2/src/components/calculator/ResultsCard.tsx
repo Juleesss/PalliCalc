@@ -3,7 +3,7 @@ import Card from '../shared/Card.tsx';
 import InlineWarning from '../shared/InlineWarning.tsx';
 import { useCalculator } from './CalculatorProvider.tsx';
 import { useLanguage } from '../../i18n/LanguageContext.tsx';
-import { findDrugById } from '../../lib/drug-database.ts';
+import { findDrugById, getDrugUnit } from '../../lib/drug-database.ts';
 import { formatTabletBreakdown, formatPatchCombination, formatFrequency } from '../../lib/formatting.ts';
 import type { WarningItem, DoseDistribution, PatchCombination } from '../../lib/types.ts';
 
@@ -338,24 +338,23 @@ export default function ResultsCard() {
         )}
 
         {/* Injectable dosing info */}
-        {isInjectable && result.dividedDoses.length > 0 && (
-          <div className="bg-blue-50 rounded-lg p-4">
-            <div className="text-sm text-gray-700">
-              {result.dividedDoses.map((dose, idx) => (
-                <div key={idx}>
-                  {t('results.injectable.perDose', {
-                    value: parseFloat(dose.totalMg.toFixed(2)),
-                  })}
-                  {' '}
-                  {t('results.injectable.perDay', {
-                    count: result.targetFrequency,
-                    total: parseFloat(result.actualTdd.toFixed(2)),
-                  })}
-                </div>
-              ))}
+        {isInjectable && result.dividedDoses.length > 0 && (() => {
+          const targetUnit = getDrugUnit(result.targetDrug, result.targetRoute);
+          const unitLabel = targetUnit === 'mcg' ? 'mcg' : 'mg';
+          return (
+            <div className="bg-blue-50 rounded-lg p-4">
+              <div className="text-sm text-gray-700">
+                {result.dividedDoses.map((dose, idx) => (
+                  <div key={idx}>
+                    {parseFloat(dose.totalMg.toFixed(2))} {unitLabel}/{lang === 'hu' ? 'adag' : 'dose'}
+                    {' '}
+                    {result.targetFrequency}\u00d7/{lang === 'hu' ? 'nap' : 'day'}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* D. Patch Combination Display */}
         {isPatch && (
@@ -368,6 +367,11 @@ export default function ResultsCard() {
 
         {/* F. Warning Summary */}
         <WarningSummary warnings={result.warnings} t={t} />
+
+        {/* G. SmPC Review Disclaimer */}
+        <div className="text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+          {t('results.smpcDisclaimer')}
+        </div>
       </div>
     </Card>
   );

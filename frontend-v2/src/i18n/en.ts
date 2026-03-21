@@ -177,6 +177,24 @@ const en: Record<string, string> = {
     'The calculated dose ({dose} mg/day) exceeds the maximum daily dose for this drug ({max} mg). Rotation to a minor opioid is not recommended at this dose level.',
   'warning.drug.oxycodone_naloxone.hepatic':
     'Oxycodone+naloxone combination is contraindicated in moderate-to-severe hepatic impairment! Use pure oxycodone or another opioid in such cases.',
+  'warning.drug.oxycodone_naloxone.component':
+    'The calculation refers to the oxycodone component, not the total active substance.',
+  'warning.drug.oxycodone_naloxone.highDose':
+    'High oxycodone/naloxone dose ({dose} mg/day oxycodone component). Individual dosing review recommended.',
+  'warning.drug.oxycodone.highDose':
+    'High oxycodone dose ({dose} mg/day). Individual dosing review recommended.',
+  'warning.drug.methadone.onlineUnsafe':
+    'Methadone conversion via online calculators is not safe. Methadone titration should only be performed by a specialist!',
+  'warning.drug.singleDoseMax':
+    'Single dose maximum ({max} mg) exceeded! Calculated single dose: {dose} mg.',
+  'warning.drug.morphine.ivToPo':
+    'MST Continus: When switching IV to oral, the SmPC generally recommends a 100% dose increase for sustained-release formulations.',
+  'warning.dose.roundedUpToMin':
+    'The calculated dose ({target} mg) is below the smallest available tablet size. The dose was rounded up to the minimum achievable dose ({actual} mg).',
+  'warning.freq.retardTooFrequent':
+    'Sustained-release (retard) formulations are not appropriate for dosing more frequently than every 12 hours. Choose an immediate-release (IR) formulation or reduce dosing frequency.',
+  'warning.freq.irTooInfrequent':
+    'Immediate-release (IR) formulations dosed every 24 hours may not provide adequate pain relief. Choose a sustained-release formulation or increase dosing frequency.',
 
   // ---------------------------------------------------------------------------
   // Fentanyl Patch Notes
@@ -231,6 +249,50 @@ const en: Record<string, string> = {
   'drug.methadone': 'Methadone',
   'drug.nalbuphine': 'Nalbuphine',
   'drug.pethidine': 'Pethidine',
+  'drug.tapentadol': 'Tapentadol',
+
+  // ---------------------------------------------------------------------------
+  // Patient Parameters Disclaimer
+  // ---------------------------------------------------------------------------
+  'patient.disclaimer':
+    'BMI, gender, and renal function values do not always directly affect the calculated dose. These parameters modify warnings and dose reduction minimums.',
+
+  // ---------------------------------------------------------------------------
+  // Results Disclaimers
+  // ---------------------------------------------------------------------------
+  'results.smpcDisclaimer':
+    'Always review the Summary of Product Characteristics (SmPC) before any opioid rotation, as certain conversions may require more complex clinical assessment.',
+
+  // ---------------------------------------------------------------------------
+  // Slider Guidance
+  // ---------------------------------------------------------------------------
+  'target.sliderGuidance.title': 'Dose reduction guidance',
+  'target.sliderGuidance.body':
+    'Choose a dose closer to the lower bound of the automatic dose reduction range (25% reduction) or closer to the upper bound (50% reduction) based on clinical judgment of how applicable it is to the specific opioid treatment or patient characteristics.\n\nChoose closer to the upper bound (50%) if:\n• the patient is on a relatively high-dose opioid regimen,\n• of Asian descent, or\n• elderly or medically critical.\n\nChoose closer to the lower bound (25%) if:\n• the patient does not have these characteristics, or\n• switching to the same drug via a different systemic route (e.g., oral to IV).',
+  'target.sliderGuidance.source': 'Source: UpToDate',
+
+  // ---------------------------------------------------------------------------
+  // Patient Stability (Fentanyl Patch)
+  // ---------------------------------------------------------------------------
+  'target.stability': 'Patient stability',
+  'target.stability.stable': 'Stable',
+  'target.stability.unstable': 'Unstable',
+  'target.stability.note': 'For unstable patients, a more conservative (lower) patch strength is recommended.',
+
+  // ---------------------------------------------------------------------------
+  // Formulation Badges
+  // ---------------------------------------------------------------------------
+  'formulation.retard': 'SR',
+  'formulation.ir': 'IR',
+  'formulation.baseline': 'baseline',
+  'formulation.breakthrough': 'breakthrough',
+
+  // ---------------------------------------------------------------------------
+  // Source Citations
+  // ---------------------------------------------------------------------------
+  'source.uptodate': 'UpToDate',
+  'source.smpc': 'SmPC',
+  'source.ripamonti': 'Ripamonti et al.',
 
   // ---------------------------------------------------------------------------
   // Validation Messages

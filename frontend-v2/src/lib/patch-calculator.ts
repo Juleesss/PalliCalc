@@ -1,10 +1,11 @@
 // =============================================================================
 // PalliCalc v2.0 — Fentanyl Patch Calculator
 // Specialized logic for fentanyl transdermal patch conversions.
+// Implements Durogesic SmPC band-based lookup (replaces interpolation).
 // No React imports. Pure functions.
 // =============================================================================
 
-import type { PatchCombination, FentanylPatchEntry } from './types';
+import type { PatchCombination, FentanylPatchEntry, PatientStability } from './types';
 
 // ---------------------------------------------------------------------------
 // Available Patch Sizes
@@ -17,7 +18,32 @@ import type { PatchCombination, FentanylPatchEntry } from './types';
 export const AVAILABLE_PATCH_SIZES: readonly number[] = [12, 25, 50, 75, 100] as const;
 
 // ---------------------------------------------------------------------------
-// Fentanyl Patch Table (from PRD section 4.3)
+// Durogesic SmPC Band Table
+// ---------------------------------------------------------------------------
+
+/**
+ * Durogesic SmPC band-based conversion table.
+ * Each band maps an oral morphine dose range (OME mg/day) to a patch strength.
+ * This replaces the previous interpolation-based approach.
+ */
+const SMPC_PATCH_BANDS: readonly { omeLow: number; omeHigh: number; mcgPerHr: number }[] = [
+  { omeLow: 30,  omeHigh: 44,  mcgPerHr: 12 },
+  { omeLow: 45,  omeHigh: 89,  mcgPerHr: 25 },
+  { omeLow: 90,  omeHigh: 149, mcgPerHr: 50 },
+  { omeLow: 150, omeHigh: 209, mcgPerHr: 75 },
+  { omeLow: 210, omeHigh: 269, mcgPerHr: 100 },
+  { omeLow: 270, omeHigh: 329, mcgPerHr: 125 },
+  { omeLow: 330, omeHigh: 389, mcgPerHr: 150 },
+  { omeLow: 390, omeHigh: 449, mcgPerHr: 175 },
+  { omeLow: 450, omeHigh: 509, mcgPerHr: 200 },
+  { omeLow: 510, omeHigh: 569, mcgPerHr: 225 },
+  { omeLow: 570, omeHigh: 629, mcgPerHr: 250 },
+  { omeLow: 630, omeHigh: 689, mcgPerHr: 275 },
+  { omeLow: 690, omeHigh: 749, mcgPerHr: 300 },
+];
+
+// ---------------------------------------------------------------------------
+// Legacy Fentanyl Patch Table (kept for fentanylMcgHrToOme reverse lookup)
 // ---------------------------------------------------------------------------
 
 const FENTANYL_PATCH_TABLE: readonly FentanylPatchEntry[] = [
@@ -29,54 +55,59 @@ const FENTANYL_PATCH_TABLE: readonly FentanylPatchEntry[] = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// OME -> Fentanyl mcg/hr (Reverse Lookup with Interpolation)
+// SmPC Band-Based OME -> Fentanyl mcg/hr
 // ---------------------------------------------------------------------------
 
 /**
- * Convert OME (mg/day) to target fentanyl patch strength (mcg/hr).
- * Uses linear interpolation between table entries.
+ * Convert OME (mg/day) to target fentanyl patch strength (mcg/hr)
+ * using the Durogesic SmPC band table.
  *
- * Algorithm (clinical_data_reference.md section 2.2):
- * 1. Find which range the OME falls into.
- * 2. Interpolate linearly between the two bracketing midpoints.
- * 3. For values below or above the table, extrapolate linearly.
+ * @param ome - Total oral morphine equivalent in mg/day.
+ * @param stability - Patient stability: 'stable' uses standard table,
+ *                    'unstable' shifts one band lower (more conservative).
+ * @returns Target patch strength in mcg/hr.
  */
-export function omeToFentanylMcgHr(ome: number): number {
+export function omeToFentanylMcgHr(ome: number, stability: PatientStability = 'stable'): number {
   if (ome <= 0) return 0;
 
-  const table = FENTANYL_PATCH_TABLE;
-
-  // Below the lowest entry: extrapolate from origin to first midpoint
-  if (ome <= table[0].midpoint) {
-    // Linear from (0 OME = 0 mcg/hr) to (37.5 OME = 12 mcg/hr)
-    return (ome / table[0].midpoint) * table[0].mcgPerHr;
+  // Below the table: too low for patches
+  if (ome < SMPC_PATCH_BANDS[0].omeLow) {
+    // Proportional extrapolation below table
+    return (ome / SMPC_PATCH_BANDS[0].omeLow) * SMPC_PATCH_BANDS[0].mcgPerHr;
   }
 
-  // Above the highest entry: extrapolate from last two entries
-  if (ome > table[table.length - 1].midpoint) {
-    const last = table[table.length - 1];
-    const prev = table[table.length - 2];
-    const slope =
-      (last.mcgPerHr - prev.mcgPerHr) / (last.midpoint - prev.midpoint);
-    return last.mcgPerHr + slope * (ome - last.midpoint);
-  }
-
-  // Interpolate between two bracketing entries
-  for (let i = 0; i < table.length - 1; i++) {
-    const lo = table[i];
-    const hi = table[i + 1];
-    if (ome >= lo.midpoint && ome <= hi.midpoint) {
-      const fraction = (ome - lo.midpoint) / (hi.midpoint - lo.midpoint);
-      return lo.mcgPerHr + fraction * (hi.mcgPerHr - lo.mcgPerHr);
+  // Find the matching band
+  for (const band of SMPC_PATCH_BANDS) {
+    if (ome >= band.omeLow && ome <= band.omeHigh) {
+      if (stability === 'unstable') {
+        // One band lower for unstable patients (more conservative)
+        const idx = SMPC_PATCH_BANDS.indexOf(band);
+        if (idx > 0) {
+          return SMPC_PATCH_BANDS[idx - 1].mcgPerHr;
+        }
+        // Already at lowest band — use same
+        return band.mcgPerHr;
+      }
+      return band.mcgPerHr;
     }
   }
 
-  // Fallback (should not reach)
-  return 0;
+  // Above the table: extrapolate (25 mcg/hr per 60 mg OME above 690)
+  const lastBand = SMPC_PATCH_BANDS[SMPC_PATCH_BANDS.length - 1];
+  const extraMcg = Math.ceil((ome - lastBand.omeHigh) / 60) * 25;
+  const result = lastBand.mcgPerHr + extraMcg;
+
+  if (stability === 'unstable') {
+    // Reduce by one band step (25 mcg/hr) for unstable
+    return Math.max(12, result - 25);
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
 // Fentanyl mcg/hr -> OME (Forward Lookup with Interpolation)
+// Used for SOURCE patch -> OME conversion (input direction)
 // ---------------------------------------------------------------------------
 
 /**
@@ -122,12 +153,7 @@ export function fentanylMcgHrToOme(mcgPerHr: number): number {
 /**
  * Combine available fentanyl patch sizes to approximate a target mcg/hr.
  * Uses a greedy algorithm from largest to smallest.
- *
- * Algorithm (clinical_data_reference.md section 2.2):
- * 1. Start with the largest available patch size (100 mcg/hr).
- * 2. Use as many of each size as fit.
- * 3. Work down to smaller sizes.
- * 4. If remaining >= half the smallest patch (6 mcg/hr), add one 12 mcg/hr patch.
+ * Limits patch combinations to max 3 patches for practicality.
  *
  * @param targetMcgHr - Target patch strength in mcg/hr.
  * @returns Array of PatchCombination (sorted from largest to smallest).

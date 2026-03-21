@@ -1,10 +1,11 @@
 // =============================================================================
 // PalliCalc v2.0 — Drug Database
-// Complete Hungarian opioid drug registry with brands and tablet sizes.
+// Complete Hungarian opioid drug registry with brands, tablet sizes,
+// formulation types (retard/IR), and splittability data.
 // No React imports. Pure data and lookup functions.
 // =============================================================================
 
-import type { DrugDefinition, BrandEntry } from './types';
+import type { DrugDefinition, BrandEntry, FormulationSizes } from './types';
 
 // ---------------------------------------------------------------------------
 // Warning Drugs
@@ -40,7 +41,13 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
       { name: 'Morphinum Hydrochloricum TEVA', drug: 'morphine', routeHint: 'sc/iv', form: 'oldatos injekció' },
     ],
     tabletSizes: {
-      'oral': [10, 30, 60, 100],  // MST Continus retard
+      'oral': [10, 20, 30, 60, 100],  // Combined retard + IR sizes
+    },
+    formulations: {
+      'oral': [
+        { type: 'retard', sizes: [10, 30, 60, 100], splittable: [], validFrequencies: [1, 2], suitableFor: 'baseline' },
+        { type: 'ir', sizes: [10, 20], splittable: [10, 20], validFrequencies: [3, 4, 6], suitableFor: 'breakthrough' },
+      ],
     },
     minDose: {
       'oral': 10,  // Smallest MST Continus
@@ -49,6 +56,7 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
 
   // =========================================================================
   // OXYCODONE (Oxikodon) — ATC: N02AA05
+  // Oxycodone Sandoz and Vitabalans REMOVED (no longer available in Hungary)
   // =========================================================================
   {
     id: 'oxycodone',
@@ -60,11 +68,15 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
       { name: 'Codoxy', drug: 'oxycodone', routeHint: 'oral', form: 'retard tabletta' },
       { name: 'Codoxy Rapid', drug: 'oxycodone', routeHint: 'oral', form: 'filmtabletta (IR)' },
       { name: 'Reltebon', drug: 'oxycodone', routeHint: 'oral', form: 'retard tabletta' },
-      { name: 'Oxycodone Sandoz', drug: 'oxycodone', routeHint: 'oral', form: 'kemény kapszula (IR)' },
-      { name: 'Oxycodone Vitabalans', drug: 'oxycodone', routeHint: 'oral', form: 'filmtabletta (IR)' },
     ],
     tabletSizes: {
-      'oral': [5, 10, 20, 40, 80],  // Codoxy retard has full range
+      'oral': [5, 10, 20, 40, 80],  // Combined retard + IR sizes
+    },
+    formulations: {
+      'oral': [
+        { type: 'retard', sizes: [10, 20, 40, 80], splittable: [], validFrequencies: [1, 2], suitableFor: 'baseline' },
+        { type: 'ir', sizes: [5, 10, 20], splittable: [5, 10, 20], validFrequencies: [3, 4, 6], suitableFor: 'breakthrough' },
+      ],
     },
     minDose: {
       'oral': 10,  // OxyContin minimum dose in Hungary (user requirement)
@@ -73,6 +85,8 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
 
   // =========================================================================
   // OXYCODONE + NALOXONE (Oxikodon + Naloxon) — ATC: N02AA55
+  // Only Oxynador currently available. Targin, Oxynal, Neuraxpharm REMOVED.
+  // Calculation refers to oxycodone component only.
   // =========================================================================
   {
     id: 'oxycodone-naloxone',
@@ -80,13 +94,15 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     routes: ['oral'],
     unit: 'mg',
     brands: [
-      { name: 'Targin', drug: 'oxycodone-naloxone', routeHint: 'oral', form: 'retard tabletta' },
-      { name: 'Oxynal', drug: 'oxycodone-naloxone', routeHint: 'oral', form: 'retard tabletta' },
       { name: 'Oxynador', drug: 'oxycodone-naloxone', routeHint: 'oral', form: 'retard tabletta' },
-      { name: 'Oxikodon-HCL/Naloxon-HCL Neuraxpharm', drug: 'oxycodone-naloxone', routeHint: 'oral', form: 'retard tabletta' },
     ],
     tabletSizes: {
-      'oral': [5, 10, 20, 40],  // Targin / Oxynal / Neuraxpharm (oxycodone component)
+      'oral': [5, 10, 20, 40],  // Oxynador (oxycodone component)
+    },
+    formulations: {
+      'oral': [
+        { type: 'retard', sizes: [5, 10, 20, 40], splittable: [], validFrequencies: [1, 2], suitableFor: 'baseline' },
+      ],
     },
     minDose: {
       'oral': 5,
@@ -95,12 +111,16 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
 
   // =========================================================================
   // FENTANYL (Fentanil) — ATC: N02AB03 (patch), N01AH01 (injection)
+  // SC/IV input in mcg (unitPerRoute override)
   // =========================================================================
   {
     id: 'fentanyl',
     displayName: { hu: 'Fentanil', en: 'Fentanyl' },
     routes: ['patch', 'oral/mucosal', 'sc/iv'],
-    unit: 'mg', // SC/IV and oral/mucosal in mg; patch in mcg/hr (handled specially)
+    unit: 'mg', // Default unit; SC/IV overridden to mcg via unitPerRoute
+    unitPerRoute: {
+      'sc/iv': 'mcg',  // Clinicians use micrograms for injectable fentanyl
+    },
     brands: [
       // Transdermal patches (TDT)
       { name: 'Durogesic', drug: 'fentanyl', routeHint: 'patch', form: 'transzdermális tapasz' },
@@ -112,10 +132,10 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
       { name: 'Effentora', drug: 'fentanyl', routeHint: 'oral/mucosal', form: 'buccális tabletta' },
       { name: 'Abstral', drug: 'fentanyl', routeHint: 'oral/mucosal', form: 'szublinguális tabletta' },
       { name: 'Actiq', drug: 'fentanyl', routeHint: 'oral/mucosal', form: 'szopogató tabletta' },
-      // Injectable
+      // Injectable — "(injectio)" removed per feedback, form already says "oldatos injekció"
       { name: 'Fentanyl Kalceks', drug: 'fentanyl', routeHint: 'sc/iv', form: 'oldatos injekció' },
       { name: 'Fentanyl-Richter', drug: 'fentanyl', routeHint: 'sc/iv', form: 'oldatos injekció' },
-      { name: 'Fentanyl Sandoz (injectio)', drug: 'fentanyl', routeHint: 'sc/iv', form: 'oldatos injekció' },
+      { name: 'Fentanyl Sandoz', drug: 'fentanyl', routeHint: 'sc/iv', form: 'oldatos injekció' },
     ],
     tabletSizes: {
       'patch': [12, 25, 50, 75, 100],  // mcg/hr
@@ -124,26 +144,31 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
 
   // =========================================================================
   // HYDROMORPHONE (Hidromorfon) — ATC: N02AA03
+  // Brands REMOVED (Jurnista, Palladone no longer available in Hungary).
+  // Drug itself kept with conversion factors.
   // =========================================================================
   {
     id: 'hydromorphone',
     displayName: { hu: 'Hidromorfon', en: 'Hydromorphone' },
     routes: ['oral', 'sc/iv'],
     unit: 'mg',
-    brands: [
-      { name: 'Jurnista', drug: 'hydromorphone', routeHint: 'oral', form: 'retard tabletta (OROS)' },
-      { name: 'Palladone', drug: 'hydromorphone', routeHint: 'oral', form: 'kapszula' },
-    ],
+    brands: [],  // Jurnista and Palladone no longer available in Hungary
     tabletSizes: {
-      'oral': [4, 8, 16, 32],  // Jurnista retard (q24h)
+      'oral': [4, 8, 16, 32],  // Retained for calculation purposes
+    },
+    formulations: {
+      'oral': [
+        { type: 'retard', sizes: [4, 8, 16, 32], splittable: [], validFrequencies: [1], suitableFor: 'baseline' },
+      ],
     },
     minDose: {
-      'oral': 4,  // Jurnista minimum
+      'oral': 4,
     },
   },
 
   // =========================================================================
   // TRAMADOL — ATC: N02AX02
+  // Added IR 50mg formulation and maxSingleDose
   // =========================================================================
   {
     id: 'tramadol',
@@ -163,13 +188,21 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
       { name: 'Tramadolor', drug: 'tramadol', routeHint: 'oral', form: 'kemény kapszula / retard' },
     ],
     tabletSizes: {
-      'oral': [100, 150, 200],  // Retard formulations
+      'oral': [50, 100, 150, 200],  // Combined IR + retard sizes
+    },
+    formulations: {
+      'oral': [
+        { type: 'retard', sizes: [100, 150, 200], splittable: [], validFrequencies: [1, 2], suitableFor: 'baseline' },
+        { type: 'ir', sizes: [50], splittable: [], validFrequencies: [3, 4, 6], suitableFor: 'both' },  // capsule, not splittable
+      ],
     },
     maxDailyDose: 400,
+    maxSingleDose: 200,
   },
 
   // =========================================================================
   // DIHYDROCODEINE (Dihidrokodein) — ATC: N02AA08
+  // Added maxSingleDose 120mg
   // =========================================================================
   {
     id: 'dihydrocodeine',
@@ -182,20 +215,57 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     tabletSizes: {
       'oral': [60],  // Only 60mg confirmed in Hungary
     },
+    formulations: {
+      'oral': [
+        { type: 'retard', sizes: [60], splittable: [], validFrequencies: [1, 2, 3], suitableFor: 'baseline' },
+      ],
+    },
     maxDailyDose: 240,
+    maxSingleDose: 120,
   },
 
   // =========================================================================
   // CODEINE (Kodein) — ATC: N02AA59
+  // Added brands (Talvosilen Forte, Parcodin) and maxDailyDose
   // =========================================================================
   {
     id: 'codeine',
     displayName: { hu: 'Kodein', en: 'Codeine' },
     routes: ['oral'],
     unit: 'mg',
-    brands: [],
+    brands: [
+      { name: 'Talvosilen Forte', drug: 'codeine', routeHint: 'oral', form: '500mg/30mg kemény kapszula' },
+      { name: 'Parcodin', drug: 'codeine', routeHint: 'oral', form: '500mg/30mg tabletta (tartós termékhiány)', unavailable: true },
+    ],
     tabletSizes: {
-      'oral': [15, 30, 60],  // Common codeine tablet sizes
+      'oral': [30],  // 30mg codeine component (Talvosilen Forte capsule)
+    },
+    formulations: {
+      'oral': [
+        { type: 'ir', sizes: [30], splittable: [], validFrequencies: [3, 4, 6], suitableFor: 'both' },  // capsule, not splittable
+      ],
+    },
+    maxDailyDose: 240,
+  },
+
+  // =========================================================================
+  // TAPENTADOL (Tapentadol) — ATC: N02AX06
+  // New drug: 0.4 toOME factor. Available in neighboring countries.
+  // No brand names in Hungary. Tablet sizes from Palexia retard.
+  // =========================================================================
+  {
+    id: 'tapentadol',
+    displayName: { hu: 'Tapentadol', en: 'Tapentadol' },
+    routes: ['oral'],
+    unit: 'mg',
+    brands: [],  // Not available in Hungary, but available in neighboring countries
+    tabletSizes: {
+      'oral': [50, 100, 150, 200, 250],  // Palexia retard
+    },
+    formulations: {
+      'oral': [
+        { type: 'retard', sizes: [50, 100, 150, 200, 250], splittable: [], validFrequencies: [1, 2], suitableFor: 'baseline' },
+      ],
     },
   },
 
@@ -213,6 +283,11 @@ export const DRUG_DATABASE: readonly DrugDefinition[] = [
     ],
     tabletSizes: {
       'oral': [5, 10, 20, 40],  // Metadon EP
+    },
+    formulations: {
+      'oral': [
+        { type: 'ir', sizes: [5, 10, 20, 40], splittable: [5, 10, 20, 40], validFrequencies: [1, 2, 3], suitableFor: 'both' },
+      ],
     },
     isWarningDrug: true,
   },
@@ -281,7 +356,7 @@ export function findDrugByBrand(
 
 /**
  * Get available tablet sizes for a drug and route.
- * Returns sizes sorted ascending.
+ * Returns sizes sorted ascending. Includes both retard and IR sizes.
  */
 export function getTabletSizes(drugId: string, route: string): number[] {
   const drug = findDrugById(drugId);
@@ -291,6 +366,25 @@ export function getTabletSizes(drugId: string, route: string): number[] {
   if (!sizes || sizes.length === 0) return [];
 
   return [...sizes].sort((a, b) => a - b);
+}
+
+/**
+ * Get formulation-specific tablet sizes for a drug and route.
+ */
+export function getFormulations(drugId: string, route: string): readonly FormulationSizes[] {
+  const drug = findDrugById(drugId);
+  if (!drug?.formulations) return [];
+  return drug.formulations[route] ?? [];
+}
+
+/**
+ * Get the effective unit for a drug + route combination.
+ * Falls back to the drug's default unit.
+ */
+export function getDrugUnit(drugId: string, route: string): string {
+  const drug = findDrugById(drugId);
+  if (!drug) return 'mg';
+  return drug.unitPerRoute?.[route] ?? drug.unit;
 }
 
 /**

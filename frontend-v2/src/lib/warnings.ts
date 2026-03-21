@@ -1,6 +1,7 @@
 // =============================================================================
 // PalliCalc v2.0 — Warning Logic
-// All clinical warning generation for GFR, BMI, gender, and drug-specific.
+// All clinical warning generation for GFR, BMI, gender, drug-specific,
+// formulation frequency, single-dose max, and component clarifications.
 // No React imports. Pure functions. All text uses translation keys.
 // =============================================================================
 
@@ -18,6 +19,7 @@ const GFR_DRUG_RISK: Record<string, GfrRiskLevel> = {
   oxycodone:       'caution',
   hydromorphone:   'caution',
   tramadol:        'caution',
+  tapentadol:      'caution',
   fentanyl:        'preferred',
   methadone:       'preferred', // preferred for renal, but specialist-only caveats
   'oxycodone-naloxone': 'caution', // same as oxycodone
@@ -29,28 +31,25 @@ const GFR_DRUG_RISK: Record<string, GfrRiskLevel> = {
 
 /**
  * Get general GFR-based warnings.
- * GFR < 30 and GFR < 10 have distinct warning texts.
+ * When GFR < 10, only show the stricter warning (50% minimum).
+ * When GFR 10-29, show the 25-50% warning.
  */
 export function getGfrWarnings(gfr: number | null): WarningItem[] {
   if (gfr === null || gfr >= 30) return [];
 
-  const warnings: WarningItem[] = [];
-
-  // GFR < 30: standard warning (always shown when GFR < 30)
-  warnings.push({
-    type: 'danger',
-    messageKey: 'warning.gfr.below30',
-  });
-
+  // GFR < 10: only the stricter warning (at least 50% reduction)
   if (gfr < 10) {
-    // GFR < 10: additional severe warning
-    warnings.push({
+    return [{
       type: 'danger',
       messageKey: 'warning.gfr.below10',
-    });
+    }];
   }
 
-  return warnings;
+  // GFR 10-29: standard warning (25-50% reduction)
+  return [{
+    type: 'danger',
+    messageKey: 'warning.gfr.below30',
+  }];
 }
 
 // ---------------------------------------------------------------------------
@@ -223,18 +222,18 @@ export function getDrugWarnings(drugId: string, isTarget: boolean): WarningItem[
       }
       break;
 
-    // ----- FENTANYL ORAL/MUCOSAL -----
-    case 'fentanyl':
-      // This is checked by callers with route info; here we add a
-      // general transmucosal warning. Route-specific logic is below.
-      break;
-
-    // ----- OXYCODONE + NALOXONE -----
+    // ----- OXYCODONE + NALOXONE: component clarification -----
     case 'oxycodone-naloxone':
       warnings.push({
         type: 'info',
         messageKey: 'warning.drug.oxycodone_naloxone.hepatic',
       });
+      if (isTarget) {
+        warnings.push({
+          type: 'info',
+          messageKey: 'warning.drug.oxycodone_naloxone.component',
+        });
+      }
       break;
 
     default:
@@ -318,6 +317,160 @@ export function getMinDoseWarning(drugId: string, calculatedDose: number): Warni
   }
 
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Single-Dose Maximum Warning
+// ---------------------------------------------------------------------------
+
+/**
+ * Check if a single dose exceeds the per-administration maximum.
+ */
+export function getSingleDoseMaxWarning(drugId: string, singleDoseMg: number): WarningItem | null {
+  const limits: Record<string, number> = {
+    dihydrocodeine: 120,
+    tramadol: 200,
+  };
+
+  const maxDose = limits[drugId];
+  if (!maxDose) return null;
+
+  if (singleDoseMg > maxDose) {
+    return {
+      type: 'danger',
+      messageKey: 'warning.drug.singleDoseMax',
+      params: {
+        dose: Math.round(singleDoseMg),
+        max: maxDose,
+      },
+    };
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Oxycodone High-Dose Info Warning
+// ---------------------------------------------------------------------------
+
+/**
+ * Info-level warning for high oxycodone or oxycodone-naloxone doses.
+ * No hard cap (individualized per SmPC), but clinician should be aware.
+ */
+export function getHighDoseWarning(drugId: string, dailyDoseMg: number): WarningItem | null {
+  if (drugId === 'oxycodone' && dailyDoseMg > 160) {
+    return {
+      type: 'info',
+      messageKey: 'warning.drug.oxycodone.highDose',
+      params: { dose: Math.round(dailyDoseMg) },
+    };
+  }
+  if (drugId === 'oxycodone-naloxone' && dailyDoseMg > 80) {
+    return {
+      type: 'info',
+      messageKey: 'warning.drug.oxycodone_naloxone.highDose',
+      params: { dose: Math.round(dailyDoseMg) },
+    };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Formulation Frequency Validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Warn if the selected frequency is inappropriate for the formulation type.
+ */
+export function getFrequencyWarnings(
+  drugId: string,
+  route: string,
+  frequency: number,
+  formulations: readonly { type: string; validFrequencies?: readonly number[] }[],
+): WarningItem[] {
+  const warnings: WarningItem[] = [];
+
+  if (route === 'patch' || route === 'sc/iv' || route === 'iv') return warnings;
+
+  // Check if frequency is appropriate for any formulation
+  const retardFormulations = formulations.filter((f) => f.type === 'retard');
+  const irFormulations = formulations.filter((f) => f.type === 'ir');
+
+  // If there are retard formulations and frequency > q12h (frequency > 2)
+  if (retardFormulations.length > 0 && irFormulations.length === 0 && frequency > 2) {
+    warnings.push({
+      type: 'caution',
+      messageKey: 'warning.freq.retardTooFrequent',
+    });
+  }
+
+  // If there are only IR formulations and frequency = q24h (frequency = 1)
+  if (irFormulations.length > 0 && retardFormulations.length === 0 && frequency === 1) {
+    warnings.push({
+      type: 'caution',
+      messageKey: 'warning.freq.irTooInfrequent',
+    });
+  }
+
+  return warnings;
+}
+
+// ---------------------------------------------------------------------------
+// Methadone Safety Warning (online calculator)
+// ---------------------------------------------------------------------------
+
+/**
+ * Warning that methadone conversion via online calculators is unsafe.
+ */
+export function getMethadoneSafetyWarning(): WarningItem {
+  return {
+    type: 'danger',
+    messageKey: 'warning.drug.methadone.onlineUnsafe',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Dose Rounded Up To Minimum Warning
+// ---------------------------------------------------------------------------
+
+/**
+ * Warning when dose was rounded up to the minimum achievable tablet size.
+ */
+export function getDoseRoundedUpWarning(targetMg: number, actualMg: number): WarningItem {
+  return {
+    type: 'caution',
+    messageKey: 'warning.dose.roundedUpToMin',
+    params: {
+      target: Math.round(targetMg * 10) / 10,
+      actual: Math.round(actualMg),
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// MST Continus IV→PO Note
+// ---------------------------------------------------------------------------
+
+/**
+ * When switching morphine from IV to oral retard (MST Continus),
+ * SmPC recommends 100% dose increase.
+ */
+export function getMstContinusIvToPoWarning(
+  sourceDrugs: readonly { drug: string; route: string }[],
+  targetDrug: string,
+  targetRoute: string,
+): WarningItem | null {
+  if (targetDrug !== 'morphine' || targetRoute !== 'oral') return null;
+
+  const hasMorphineIv = sourceDrugs.some(
+    (s) => s.drug === 'morphine' && (s.route === 'sc/iv' || s.route === 'iv'),
+  );
+  if (!hasMorphineIv) return null;
+
+  return {
+    type: 'info',
+    messageKey: 'warning.drug.morphine.ivToPo',
+  };
 }
 
 // ---------------------------------------------------------------------------

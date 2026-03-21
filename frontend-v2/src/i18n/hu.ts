@@ -177,6 +177,24 @@ const hu: Record<string, string> = {
     'A számított dózis ({dose} mg/nap) meghaladja a gyógyszer maximális napi adagját ({max} mg). Minor opioidra történő rotáció nem javasolt ilyen dózis mellett.',
   'warning.drug.oxycodone_naloxone.hepatic':
     'Oxikodon+naloxon kombináció közepesen súlyos vagy súlyos májkárosodás esetén ellenjavallt! Ilyen esetben tiszta oxikodon vagy más opioid alkalmazandó.',
+  'warning.drug.oxycodone_naloxone.component':
+    'A kalkuláció az oxikodon komponensre vonatkozik, nem az összhatóanyagra.',
+  'warning.drug.oxycodone_naloxone.highDose':
+    'Magas oxikodon/naloxon dózis ({dose} mg/nap oxikodon komponens). Az egyéni dozírozás felülvizsgálata javasolt.',
+  'warning.drug.oxycodone.highDose':
+    'Magas oxikodon dózis ({dose} mg/nap). Az egyéni dozírozás felülvizsgálata javasolt.',
+  'warning.drug.methadone.onlineUnsafe':
+    'Metadon váltás online kalkulátorokkal nem biztonságos. A metadon beállítását kizárólag szakorvos végezze!',
+  'warning.drug.singleDoseMax':
+    'Az egyszeri maximális adag ({max} mg) túllépése! A számított egyszeri dózis: {dose} mg.',
+  'warning.drug.morphine.ivToPo':
+    'MST Continus: IV → per os váltásnál az alkalmazási előírás alapján általában 100%-os dózisemelés javasolt retard készítmény esetén.',
+  'warning.dose.roundedUpToMin':
+    'A számított dózis ({target} mg) a legkisebb elérhető tablettaméret alatt van. A dózis a minimális elérhető adagra ({actual} mg) lett kerekítve.',
+  'warning.freq.retardTooFrequent':
+    'Retard készítmény nem alkalmas 12 óránál gyakoribb adagolásra. Válasszon azonnali felszívódású (IR) készítményt, vagy csökkentse az adagolási gyakoriságot.',
+  'warning.freq.irTooInfrequent':
+    'Azonnali felszívódású (IR) készítmény 24 óránkénti adagolása nem biztosít megfelelő fájdalomcsillapítást. Válasszon retard készítményt vagy növelje az adagolási gyakoriságot.',
 
   // ---------------------------------------------------------------------------
   // Fentanyl Patch Notes
@@ -231,6 +249,50 @@ const hu: Record<string, string> = {
   'drug.methadone': 'Metadon',
   'drug.nalbuphine': 'Nalbufin',
   'drug.pethidine': 'Petidin',
+  'drug.tapentadol': 'Tapentadol',
+
+  // ---------------------------------------------------------------------------
+  // Patient Parameters Disclaimer
+  // ---------------------------------------------------------------------------
+  'patient.disclaimer':
+    'A BMI, nem és vesefunkció értékek nem minden esetben befolyásolják közvetlenül a számított dózist. Ezek a paraméterek a figyelmeztetéseket és a dóziscsökkentési minimumot módosítják.',
+
+  // ---------------------------------------------------------------------------
+  // Results Disclaimers
+  // ---------------------------------------------------------------------------
+  'results.smpcDisclaimer':
+    'Minden opioid rotáció előtt az adott gyógyszer alkalmazási előírását (SmPC) tekintse át, mert bizonyos váltások összetettebb klinikai megítélést igényelhetnek.',
+
+  // ---------------------------------------------------------------------------
+  // Slider Guidance
+  // ---------------------------------------------------------------------------
+  'target.sliderGuidance.title': 'Dóziscsökkentési útmutató',
+  'target.sliderGuidance.body':
+    'Válasszon dózist az automatikus dóziscsökkentési tartomány alsó határához közelebb (25% csökkentés) vagy a felső határához közelebb (50% csökkentés) annak klinikai megítélése alapján, hogy az mennyire alkalmazható az adott opioid kezelés vagy beteg sajátos jellemzőire.\n\nA csökkentés felső határához (50%) közelebbi dózist válasszon, ha:\n• a beteg viszonylag nagy dózisú jelenlegi opioid kezelést kap,\n• ázsiai származású, vagy\n• idős, illetve orvosilag kritikus állapotú.\n\nA csökkentés alsó határához (25%) közelebbi dózist válasszon, ha:\n• a beteg nem rendelkezik ezekkel a jellemzőkkel, vagy\n• ugyanazon gyógyszerrel történik az átállás, csak más szisztémás adagolási útra (pl. per os → iv.).',
+  'target.sliderGuidance.source': 'Forrás: UpToDate',
+
+  // ---------------------------------------------------------------------------
+  // Patient Stability (Fentanyl Patch)
+  // ---------------------------------------------------------------------------
+  'target.stability': 'Beteg stabilitása',
+  'target.stability.stable': 'Stabil',
+  'target.stability.unstable': 'Instabil',
+  'target.stability.note': 'Instabil beteg esetén konzervatívabb (alacsonyabb) tapasz erősség javasolt.',
+
+  // ---------------------------------------------------------------------------
+  // Formulation Badges
+  // ---------------------------------------------------------------------------
+  'formulation.retard': 'retard',
+  'formulation.ir': 'IR',
+  'formulation.baseline': 'bázis',
+  'formulation.breakthrough': 'áttöréses',
+
+  // ---------------------------------------------------------------------------
+  // Source Citations
+  // ---------------------------------------------------------------------------
+  'source.uptodate': 'UpToDate',
+  'source.smpc': 'SmPC',
+  'source.ripamonti': 'Ripamonti et al.',
 
   // ---------------------------------------------------------------------------
   // Validation Messages

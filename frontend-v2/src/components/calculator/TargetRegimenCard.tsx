@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import Card from '../shared/Card.tsx';
 import DrugCombobox from '../shared/DrugCombobox.tsx';
 import TappableChipGroup from '../shared/TappableChipGroup.tsx';
@@ -6,7 +6,7 @@ import NumberInput from '../shared/NumberInput.tsx';
 import InlineWarning from '../shared/InlineWarning.tsx';
 import { useCalculator } from './CalculatorProvider.tsx';
 import { useLanguage } from '../../i18n/LanguageContext.tsx';
-import type { Language } from '../../lib/types.ts';
+import type { Language, PatientStability } from '../../lib/types.ts';
 import { findDrugById } from '../../lib/drug-database.ts';
 import { computeTargetRegimen, calculateTdd, drugDoseToOme } from '../../lib/conversions.ts';
 import {
@@ -42,6 +42,7 @@ const TARGET_EXCLUDED_DRUGS = ['nalbuphine', 'pethidine'] as const;
 export default function TargetRegimenCard() {
   const { state, dispatch } = useCalculator();
   const { lang, t } = useLanguage();
+  const [showSliderGuidance, setShowSliderGuidance] = useState(false);
 
   const targetDrugDef = useMemo(
     () => (state.targetDrug ? findDrugById(state.targetDrug) : undefined),
@@ -147,6 +148,7 @@ export default function TargetRegimenCard() {
       state.bmi,
       state.gender,
       lang as Language,
+      state.patientStability,
     );
 
     dispatch({ type: 'CALCULATE', payload: result });
@@ -167,9 +169,16 @@ export default function TargetRegimenCard() {
     state.gfr,
     state.bmi,
     state.gender,
+    state.patientStability,
     lang,
     dispatch,
   ]);
+
+  // Stability options for fentanyl patch
+  const stabilityOptions = useMemo(() => [
+    { value: 'stable', label: t('target.stability.stable') },
+    { value: 'unstable', label: t('target.stability.unstable') },
+  ], [t]);
 
   return (
     <Card title={t('target.title')}>
@@ -214,6 +223,25 @@ export default function TargetRegimenCard() {
         {isPatch && (
           <div className="text-xs text-gray-500 italic">
             {t('freq.72h')}
+          </div>
+        )}
+
+        {/* Patient Stability Toggle (only for fentanyl patch target) */}
+        {isPatch && (
+          <div className="space-y-2">
+            <TappableChipGroup
+              label={t('target.stability')}
+              options={stabilityOptions}
+              value={state.patientStability}
+              onChange={(val) =>
+                dispatch({ type: 'SET_PATIENT_STABILITY', payload: val as PatientStability })
+              }
+            />
+            {state.patientStability === 'unstable' && (
+              <div className="text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
+                {t('target.stability.note')}
+              </div>
+            )}
           </div>
         )}
 
@@ -292,6 +320,23 @@ export default function TargetRegimenCard() {
           {gfrSliderMin > 0 && (
             <div className="text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
               {t('target.reductionLock', { min: gfrSliderMin })}
+            </div>
+          )}
+
+          {/* Slider Guidance (collapsible) */}
+          <button
+            type="button"
+            onClick={() => setShowSliderGuidance(!showSliderGuidance)}
+            className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+          >
+            {showSliderGuidance ? '\u25B2' : '\u25BC'} {t('target.sliderGuidance.title')}
+          </button>
+          {showSliderGuidance && (
+            <div className="text-xs text-gray-600 bg-blue-50 px-3 py-3 rounded-lg whitespace-pre-line">
+              {t('target.sliderGuidance.body')}
+              <div className="mt-2 text-xs text-gray-400 italic">
+                {t('target.sliderGuidance.source')}
+              </div>
             </div>
           )}
         </div>

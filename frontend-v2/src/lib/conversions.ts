@@ -13,8 +13,9 @@ import type {
   TargetResult,
   WarningItem,
   DoseDistribution,
+  PatientStability,
 } from './types';
-import { getTabletSizes, findDrugById } from './drug-database';
+import { getTabletSizes, findDrugById, getFormulations, getDrugUnit } from './drug-database';
 import { distributeToTablets } from './tablet-rounding';
 import { combinePatchSizes, omeToFentanylMcgHr } from './patch-calculator';
 import {
@@ -26,6 +27,12 @@ import {
   getGfrSliderMin,
   getBmiWarnings,
   getGenderWarnings,
+  getSingleDoseMaxWarning,
+  getHighDoseWarning,
+  getFrequencyWarnings,
+  getMethadoneSafetyWarning,
+  getDoseRoundedUpWarning,
+  getMstContinusIvToPoWarning,
 } from './warnings';
 import { getDoseLabels } from './formatting';
 
@@ -44,11 +51,14 @@ export const CONVERSION_TABLE: readonly ConversionEntry[] = [
   { drug: 'tramadol',       route: 'iv',            factorToOme: 0.1,   factorFromOme: 10.0,    unit: 'mg' },
   { drug: 'codeine',        route: 'oral',          factorToOme: 0.1,   factorFromOme: 10.0,    unit: 'mg' },
   { drug: 'dihydrocodeine', route: 'oral',          factorToOme: 0.1,   factorFromOme: 10.0,    unit: 'mg' },
+  // Fentanyl SC/IV: factor is per mg internally; input is in mcg (divided by 1000 in drugDoseToOme)
   { drug: 'fentanyl',       route: 'sc/iv',         factorToOme: 100.0, factorFromOme: 0.01,    unit: 'mg' },
   { drug: 'fentanyl',       route: 'oral/mucosal',  factorToOme: 50.0,  factorFromOme: 0.02,    unit: 'mg' },
   // Fentanyl patch uses lookup table, not a linear factor.
   // Oxycodone+naloxone uses the same factor as oxycodone (naloxone is local gut action).
   { drug: 'oxycodone-naloxone', route: 'oral',      factorToOme: 1.5,   factorFromOme: 0.667,   unit: 'mg' },
+  // Tapentadol: 0.4 toOME (per clinical feedback), 2.5 fromOME
+  { drug: 'tapentadol',     route: 'oral',          factorToOme: 0.4,   factorFromOme: 2.5,     unit: 'mg' },
   // Pethidine: approximate conversion, flagged as unreliable (clinical_data_reference §11.2)
   { drug: 'pethidine',    route: 'oral',    factorToOme: 0.1,   factorFromOme: 10.0,    unit: 'mg' },
   { drug: 'pethidine',    route: 'sc/iv',   factorToOme: 0.3,   factorFromOme: 3.333,   unit: 'mg' },
@@ -94,8 +104,6 @@ export function calculateTdd(
     return doses.reduce((sum, d) => sum + (d || 0), 0);
   }
   const singleDose = doses[0] || 0;
-  // frequency is doses per day. For patches (72h), frequency is stored as
-  // a special value; patch dose IS the dose, TDD is handled via lookup.
   return singleDose * frequency;
 }
 
@@ -112,16 +120,27 @@ export function findConversion(drug: string, route: string): ConversionEntry | u
 /**
  * Convert a drug TDD to Oral Morphine Equivalent (OME).
  * For fentanyl patches, use fentanylPatchToOme() instead.
+ *
+ * IMPORTANT: For fentanyl SC/IV, the input TDD is in mcg (user enters mcg).
+ * We convert to mg internally before applying the conversion factor.
  */
 export function drugDoseToOme(drug: string, route: string, tdd: number): number {
   if (drug === 'fentanyl' && route === 'patch') {
     return fentanylPatchToOme(tdd);
   }
+
+  // Fentanyl SC/IV: input is in mcg, convert to mg for OME calculation
+  let effectiveTdd = tdd;
+  const drugUnit = getDrugUnit(drug, route);
+  if (drugUnit === 'mcg') {
+    effectiveTdd = tdd / 1000; // mcg -> mg
+  }
+
   const entry = findConversion(drug, route);
   if (!entry) {
     return 0;
   }
-  return tdd * entry.factorToOme;
+  return effectiveTdd * entry.factorToOme;
 }
 
 /**
@@ -175,10 +194,10 @@ export function omeToDrugDose(drug: string, route: string, ome: number): number 
 }
 
 /**
- * Convert OME to fentanyl patch mcg/hr using reverse lookup with interpolation.
+ * Convert OME to fentanyl patch mcg/hr using SmPC band table.
  */
-export function omeToFentanylPatch(ome: number): number {
-  return omeToFentanylMcgHr(ome);
+export function omeToFentanylPatch(ome: number, stability: PatientStability = 'stable'): number {
+  return omeToFentanylMcgHr(ome, stability);
 }
 
 /**
@@ -225,6 +244,7 @@ export function computeTargetRegimen(
   bmi: string | null = null,
   gender: string | null = null,
   lang: 'hu' | 'en' = 'hu',
+  patientStability: PatientStability = 'stable',
 ): TargetResult {
   const warnings: WarningItem[] = [];
   const perDrugOme: { drug: string; route: string; ome: number }[] = [];
@@ -272,6 +292,16 @@ export function computeTargetRegimen(
   warnings.push(...getBmiWarnings(bmi));
   warnings.push(...getGenderWarnings(gender));
 
+  // MST Continus IV->PO note
+  const mstWarning = getMstContinusIvToPoWarning(perDrugOme, targetDrug, targetRoute);
+  if (mstWarning) warnings.push(mstWarning);
+
+  // Frequency validation for formulations
+  const formulations = getFormulations(targetDrug, targetRoute);
+  if (formulations.length > 0) {
+    warnings.push(...getFrequencyWarnings(targetDrug, targetRoute, targetFrequency, formulations));
+  }
+
   // -----------------------------------------------------------------------
   // Step 5: Convert reduced OME to target drug
   // -----------------------------------------------------------------------
@@ -292,6 +322,9 @@ export function computeTargetRegimen(
       messageKey: 'warning.drug.methadone.accumulation',
     });
 
+    // Methadone online calculator safety warning
+    warnings.push(getMethadoneSafetyWarning());
+
     // Methadone rotation restriction: only allowed when totalOme ≈ 10 mg
     if (Math.abs(totalOme - 10) >= 0.01) {
       warnings.push({
@@ -309,12 +342,19 @@ export function computeTargetRegimen(
     if (sizes.length > 0 && targetFrequency > 0) {
       const labels = getDoseLabels(targetFrequency, lang);
       dividedDoses = distributeToTablets(targetTdd, targetFrequency, sizes, labels);
-      actualTdd = dividedDoses.reduce((sum, d) => sum + d.totalMg, 0);
+      const newActualTdd = dividedDoses.reduce((sum, d) => sum + d.totalMg, 0);
+
+      // Check if rounding produced a non-zero result from a non-zero target
+      if (newActualTdd > 0 && targetTdd > 0 && newActualTdd > targetTdd) {
+        warnings.push(getDoseRoundedUpWarning(targetTdd, newActualTdd));
+      }
+
+      actualTdd = newActualTdd;
       roundingDeltaPct = targetTdd > 0 ? ((actualTdd - targetTdd) / targetTdd) * 100 : 0;
     }
   } else if (isPatch) {
-    // Fentanyl patch: reverse lookup -> combine patch sizes
-    const targetMcgHr = omeToFentanylMcgHr(reducedOme);
+    // Fentanyl patch: SmPC band-based lookup -> combine patch sizes
+    const targetMcgHr = omeToFentanylMcgHr(reducedOme, patientStability);
     patchCombination = combinePatchSizes(targetMcgHr);
     const actualMcgHr = patchCombination.reduce((sum, p) => sum + p.mcgPerHr * p.count, 0);
     targetTdd = targetMcgHr; // For patches, "TDD" is mcg/hr
@@ -327,10 +367,17 @@ export function computeTargetRegimen(
     if (isInjectable) {
       // Injectable: no rounding needed, exact dose
       actualTdd = targetTdd;
-      const perDose = targetFrequency > 0 ? targetTdd / targetFrequency : targetTdd;
+
+      // For fentanyl injectable, convert result back to mcg for display
+      let displayDose = targetFrequency > 0 ? targetTdd / targetFrequency : targetTdd;
+      const targetUnit = getDrugUnit(targetDrug, targetRoute);
+      if (targetUnit === 'mcg') {
+        displayDose = displayDose * 1000; // mg -> mcg for display
+      }
+
       dividedDoses = [{
         label: '',
-        totalMg: perDose,
+        totalMg: displayDose,
         tablets: [],
       }];
     } else {
@@ -339,7 +386,14 @@ export function computeTargetRegimen(
       if (sizes.length > 0 && targetFrequency > 0) {
         const labels = getDoseLabels(targetFrequency, lang);
         dividedDoses = distributeToTablets(targetTdd, targetFrequency, sizes, labels);
-        actualTdd = dividedDoses.reduce((sum, d) => sum + d.totalMg, 0);
+        const newActualTdd = dividedDoses.reduce((sum, d) => sum + d.totalMg, 0);
+
+        // Check if rounding forced dose up to minimum (Phase 1A fix)
+        if (newActualTdd > 0 && targetTdd > 0 && newActualTdd > targetTdd * 1.2) {
+          warnings.push(getDoseRoundedUpWarning(targetTdd / targetFrequency, newActualTdd / targetFrequency));
+        }
+
+        actualTdd = newActualTdd;
         roundingDeltaPct = targetTdd > 0 ? ((actualTdd - targetTdd) / targetTdd) * 100 : 0;
       } else {
         actualTdd = targetTdd;
@@ -375,6 +429,23 @@ export function computeTargetRegimen(
           params: { drug: targetDrug, max: drugDef.maxDailyDose, dose: Math.round(actualTdd) },
         });
       }
+    }
+
+    // Check single-dose maximum per administration
+    if (dividedDoses.length > 0) {
+      for (const dose of dividedDoses) {
+        const singleMaxWarn = getSingleDoseMaxWarning(targetDrug, dose.totalMg);
+        if (singleMaxWarn) {
+          warnings.push(singleMaxWarn);
+          break; // Only warn once
+        }
+      }
+    }
+
+    // Check high-dose info warning (oxycodone, oxy-naloxone)
+    const highDoseWarn = getHighDoseWarning(targetDrug, actualTdd);
+    if (highDoseWarn) {
+      warnings.push(highDoseWarn);
     }
 
     // Check minimum dose per administration

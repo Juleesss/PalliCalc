@@ -94,6 +94,7 @@ const initialState: CalculatorState = {
   targetFrequency: 2, // q12h = 2 doses per day
   gfr: null,
   reductionPct: 25,
+  patientStability: 'stable',
   result: null,
 };
 
@@ -388,6 +389,16 @@ function calculatorReducer(
         result: null,
       };
     }
+
+    // -----------------------------------------------------------------------
+    // Target Regimen: SET_PATIENT_STABILITY
+    // -----------------------------------------------------------------------
+    case 'SET_PATIENT_STABILITY':
+      return {
+        ...state,
+        patientStability: action.payload,
+        result: null,
+      };
 
     // -----------------------------------------------------------------------
     // CALCULATE: Store the pre-computed result from the UI layer.

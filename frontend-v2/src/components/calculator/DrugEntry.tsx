@@ -5,7 +5,7 @@ import TappableChipGroup from '../shared/TappableChipGroup.tsx';
 import NumberInput from '../shared/NumberInput.tsx';
 import { useCalculator } from './CalculatorProvider.tsx';
 import { useLanguage } from '../../i18n/LanguageContext.tsx';
-import { findDrugById } from '../../lib/drug-database.ts';
+import { findDrugById, getDrugUnit } from '../../lib/drug-database.ts';
 import { getDoseLabels } from '../../lib/formatting.ts';
 import type { OpioidInput } from '../../lib/types.ts'; // used in DrugEntryProps
 
@@ -68,12 +68,13 @@ export default function DrugEntry({
     return getDoseLabels(input.frequency, lang);
   }, [input.isAsymmetric, input.frequency, lang]);
 
-  // Unit for dose input
+  // Unit for dose input (route-specific: fentanyl SC/IV uses mcg)
   const doseUnit = useMemo(() => {
     if (!drugDef) return t('current.dose.unit.mg');
     if (isPatch) return t('current.dose.unit.mcg');
-    return drugDef.unit;
-  }, [drugDef, isPatch, t]);
+    const routeUnit = getDrugUnit(drugDef.id, input.route);
+    return routeUnit;
+  }, [drugDef, isPatch, input.route, t]);
 
   const handleDrugChange = useCallback(
     (drugId: string, route?: string) => {
